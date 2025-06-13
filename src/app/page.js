@@ -23,7 +23,16 @@ const TEXTURE_OPTIONS = [
   { name: "Satin", roughness: 0.4, metalness: 0.7 },
 ];
 
+// Map category to model URL
+const MODEL_URLS = {
+  Necklaces: "https://res.cloudinary.com/dkpo8ys7l/raw/upload/v1749025757/rings_model.glb",
+  Earrings: "https://res.cloudinary.com/dkpo8ys7l/raw/upload/v1748931256/tops_model.glb",
+  default: "https://res.cloudinary.com/dkpo8ys7l/raw/upload/v1748931256/tops_model.glb",
+};
+
+// Accept a modelUrl prop for flexibility
 function Model({
+  modelUrl,
   color,
   scale,
   materialType,
@@ -32,9 +41,7 @@ function Model({
   gemstoneColor,
   customMaterial,
 }) {
-  const gltf = useGLTF(
-    "https://res.cloudinary.com/dkpo8ys7l/raw/upload/v1748931256/tops_model.glb"
-  );
+  const gltf = useGLTF(modelUrl);
   const modelRef = useRef();
   const materialsCache = useRef(new Map());
 
@@ -122,10 +129,10 @@ function BlurredBackground() {
       className="absolute inset-0 bg-gradient-to-br from-gray-900 via-gray-800 to-black opacity-60"
       style={{
         backgroundImage: `
-             radial-gradient(circle at 20% 50%, rgba(120, 119, 198, 0.3) 0%, transparent 50%),
-             radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.3) 0%, transparent 50%),
-             radial-gradient(circle at 40% 80%, rgba(255, 204, 112, 0.3) 0%, transparent 50%)
-           `,
+            radial-gradient(circle at 20% 50%, rgba(120, 119, 198, 0.3) 0%, transparent 50%),
+            radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.3) 0%, transparent 50%),
+            radial-gradient(circle at 40% 80%, rgba(255, 204, 112, 0.3) 0%, transparent 50%)
+          `,
         filter: "blur(60px)",
         transform: "scale(1.1)",
       }}
@@ -133,7 +140,10 @@ function BlurredBackground() {
   );
 }
 
-export default function Home() {
+export default function Home({ productCategory = "Necklaces" }) {
+  // Add productCategory prop or get from state/route/etc.
+  // You can get this prop from your routing or global state
+
   // State Management
   const [color, setColor] = useState("#ff0000");
   const [scale, setScale] = useState(0.5);
@@ -174,6 +184,10 @@ export default function Home() {
     }));
   }, []);
 
+  // Decide model URL based on category
+  const modelUrl =
+    MODEL_URLS[productCategory] || MODEL_URLS.default;
+
   return (
     <div className="w-screen h-screen bg-white flex items-center justify-center p-4 relative overflow-hidden">
       <BlurredBackground />
@@ -182,9 +196,9 @@ export default function Home() {
         className="absolute inset-0 opacity-20 bg-gradient-to-br from-transparent via-gray-600 to-transparent"
         style={{
           backgroundImage: `
-               radial-gradient(circle at 25% 25%, rgba(255,255,255,0.1) 0%, transparent 50%),
-               radial-gradient(circle at 75% 75%, rgba(255,255,255,0.05) 0%, transparent 50%)
-             `,
+              radial-gradient(circle at 25% 25%, rgba(255,255,255,0.1) 0%, transparent 50%),
+              radial-gradient(circle at 75% 75%, rgba(255,255,255,0.05) 0%, transparent 50%)
+            `,
           filter: "blur(100px)",
         }}
       />
@@ -562,7 +576,9 @@ export default function Home() {
             maxPolarAngle={Math.PI / 2}
           />
 
+          {/* Pass modelUrl */}
           <Model
+            modelUrl={modelUrl}
             color={color}
             scale={scale}
             materialType={materialType}
