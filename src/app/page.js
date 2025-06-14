@@ -23,12 +23,32 @@ const TEXTURE_OPTIONS = [
   { name: "Satin", roughness: 0.4, metalness: 0.7 },
 ];
 
-// Map category to model URL
+// Updated MODEL_URLS to match React Native app
 const MODEL_URLS = {
-  Necklaces: "https://res.cloudinary.com/dkpo8ys7l/raw/upload/v1749025757/rings_model.glb",
-  Earrings: "https://res.cloudinary.com/dkpo8ys7l/raw/upload/v1748931256/tops_model.glb",
-  default: "https://res.cloudinary.com/dkpo8ys7l/raw/upload/v1748931256/tops_model.glb",
+  rings:
+    "https://res.cloudinary.com/dkpo8ys7l/image/upload/v1749813481/compressed_1749713357507_ring_oshwwy.glb",
+  necklaces:
+    "https://res.cloudinary.com/dkpo8ys7l/image/upload/v1748886180/haar_ug2pwb.glb",
+  earrings:
+    "https://res.cloudinary.com/dkpo8ys7l/image/upload/v1748886308/tops_mqoa35.glb",
+  bracelets:
+    "https://res.cloudinary.com/dkpo8ys7l/image/upload/v1748886308/tops_mqoa35.glb",
+  watches:
+    "https://res.cloudinary.com/dkpo8ys7l/image/upload/v1748886308/tops_mqoa35.glb",
+  other:
+    "https://res.cloudinary.com/dkpo8ys7l/image/upload/v1748886308/tops_mqoa35.glb",
+  default:
+    "https://res.cloudinary.com/dkpo8ys7l/image/upload/v1748886308/tops_mqoa35.glb",
 };
+
+// Function to get URL parameters - Fixed to handle server-side rendering
+function getUrlParameter(name) {
+  if (typeof window === "undefined") {
+    return null; // Return null during server-side rendering
+  }
+  const urlParams = new URLSearchParams(window.location.search);
+  return urlParams.get(name);
+}
 
 // Accept a modelUrl prop for flexibility
 function Model({
@@ -140,9 +160,9 @@ function BlurredBackground() {
   );
 }
 
-export default function Home({ productCategory = "Necklaces" }) {
-  // Add productCategory prop or get from state/route/etc.
-  // You can get this prop from your routing or global state
+export default function Home() {
+  // Get modelUrl from URL parameter - Now safely handles SSR
+  const [urlModelUrl, setUrlModelUrl] = useState(null);
 
   // State Management
   const [color, setColor] = useState("#ff0000");
@@ -151,6 +171,7 @@ export default function Home({ productCategory = "Necklaces" }) {
   const [texture, setTexture] = useState("Smooth");
   const [showGemstones, setShowGemstones] = useState(true);
   const [gemstoneColor, setGemstoneColor] = useState("#0066ff");
+  const [modelUrl, setModelUrl] = useState(MODEL_URLS.default);
 
   // Custom material state
   const [customMaterial, setCustomMaterial] = useState({
@@ -164,6 +185,20 @@ export default function Home({ productCategory = "Necklaces" }) {
   const [isSizeControlOpen, setIsSizeControlOpen] = useState(false);
   const [isMaterialPanelOpen, setIsMaterialPanelOpen] = useState(false);
   const [isGemstoneControlOpen, setIsGemstoneControlOpen] = useState(false);
+
+  // Get URL parameter on client-side only
+  useEffect(() => {
+    const urlParam = getUrlParameter("modelUrl");
+    setUrlModelUrl(urlParam);
+  }, []);
+
+  // Update modelUrl when URL parameter changes
+  useEffect(() => {
+    if (urlModelUrl) {
+      setModelUrl(urlModelUrl);
+      console.log("Model URL updated from URL parameter:", urlModelUrl);
+    }
+  }, [urlModelUrl]);
 
   // Optimized handlers
   const handleScaleChange = useCallback((newScale) => {
@@ -184,9 +219,10 @@ export default function Home({ productCategory = "Necklaces" }) {
     }));
   }, []);
 
-  // Decide model URL based on category
-  const modelUrl =
-    MODEL_URLS[productCategory] || MODEL_URLS.default;
+  // Log current model URL for debugging
+  useEffect(() => {
+    console.log("Current model URL:", modelUrl);
+  }, [modelUrl]);
 
   return (
     <div className="w-screen h-screen bg-white flex items-center justify-center p-4 relative overflow-hidden">
@@ -390,7 +426,7 @@ export default function Home({ productCategory = "Necklaces" }) {
                       onChange={(e) =>
                         handleCustomMaterialChange(
                           "metalness",
-                          parseFloat(e.target.value)
+                          Number.parseFloat(e.target.value)
                         )
                       }
                       className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
@@ -410,7 +446,7 @@ export default function Home({ productCategory = "Necklaces" }) {
                       onChange={(e) =>
                         handleCustomMaterialChange(
                           "roughness",
-                          parseFloat(e.target.value)
+                          Number.parseFloat(e.target.value)
                         )
                       }
                       className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
@@ -463,7 +499,7 @@ export default function Home({ productCategory = "Necklaces" }) {
                   max="1.5"
                   step="0.05"
                   value={scale}
-                  onChange={(e) => setScale(parseFloat(e.target.value))}
+                  onChange={(e) => setScale(Number.parseFloat(e.target.value))}
                   className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
                 />
                 <div className="text-center">
@@ -542,6 +578,15 @@ export default function Home({ productCategory = "Necklaces" }) {
             <p className="text-xs md:text-sm text-gray-200 m-0">
               Customize material, color & size • Toggle gemstones • Drag to
               rotate
+            </p>
+          </div>
+        </div>
+
+        {/* Model URL Display for Debugging */}
+        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-20">
+          <div className="bg-gray-900/70 backdrop-blur-md p-2 rounded-lg shadow-lg max-w-md border border-gray-600/30">
+            <p className="text-xs text-gray-300 m-0 text-center">
+              Model: {modelUrl ? modelUrl.split("/").pop() : "Loading..."}
             </p>
           </div>
         </div>
