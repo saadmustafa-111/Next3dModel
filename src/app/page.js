@@ -23,6 +23,63 @@ const TEXTURE_OPTIONS = [
   { name: "Satin", roughness: 0.4, metalness: 0.7 },
 ];
 
+// Gemstone presets
+const GEMSTONE_PRESETS = [
+  { name: "Diamond", color: "#ffffff", opacity: 0.9, refractionRatio: 0.98 },
+  { name: "Ruby", color: "#e74c3c", opacity: 0.8, refractionRatio: 0.76 },
+  { name: "Emerald", color: "#27ae60", opacity: 0.8, refractionRatio: 0.57 },
+  { name: "Sapphire", color: "#3498db", opacity: 0.8, refractionRatio: 0.76 },
+  { name: "Amethyst", color: "#9b59b6", opacity: 0.8, refractionRatio: 0.54 },
+  { name: "Topaz", color: "#f39c12", opacity: 0.8, refractionRatio: 0.61 },
+];
+
+// Lighting presets
+const LIGHTING_PRESETS = [
+  { name: "Studio", ambient: 0.4, directional: 1.8, point: 0.8, spot: 1.5 },
+  { name: "Natural", ambient: 0.6, directional: 1.2, point: 0.5, spot: 1.0 },
+  { name: "Dramatic", ambient: 0.2, directional: 2.5, point: 1.2, spot: 2.0 },
+  { name: "Soft", ambient: 0.8, directional: 0.8, point: 0.3, spot: 0.8 },
+];
+
+// Aging effects
+const AGING_EFFECTS = [
+  { name: "New", roughness: 0.1, metalness: 0.9, opacity: 1.0 },
+  { name: "Worn", roughness: 0.3, metalness: 0.7, opacity: 0.95 },
+  { name: "Vintage", roughness: 0.5, metalness: 0.5, opacity: 0.9 },
+  { name: "Antique", roughness: 0.7, metalness: 0.3, opacity: 0.85 },
+];
+
+// Default gemstone positions for different jewelry types
+const GEMSTONE_POSITIONS = {
+  rings: [
+    { position: [0, 0.1, 0], size: 0.08 },
+    { position: [-0.15, 0.05, 0], size: 0.04 },
+    { position: [0.15, 0.05, 0], size: 0.04 },
+    { position: [-0.25, 0, 0], size: 0.03 },
+    { position: [0.25, 0, 0], size: 0.03 },
+  ],
+  necklaces: [
+    { position: [0, 0.2, 0], size: 0.1 },
+    { position: [-0.1, 0.15, 0], size: 0.06 },
+    { position: [0.1, 0.15, 0], size: 0.06 },
+    { position: [-0.2, 0.1, 0], size: 0.04 },
+    { position: [0.2, 0.1, 0], size: 0.04 },
+    { position: [0, 0.05, 0], size: 0.05 },
+  ],
+  earrings: [
+    { position: [0, 0.1, 0], size: 0.06 },
+    { position: [0, -0.1, 0], size: 0.04 },
+    { position: [0, -0.2, 0], size: 0.03 },
+    { position: [0, -0.3, 0], size: 0.03 },
+  ],
+  default: [
+    { position: [0, 0.1, 0], size: 0.06 },
+    { position: [-0.1, 0.05, 0], size: 0.04 },
+    { position: [0.1, 0.05, 0], size: 0.04 },
+    { position: [0, -0.05, 0], size: 0.03 },
+  ],
+};
+
 // Updated MODEL_URLS to match React Native app
 const MODEL_URLS = {
   rings:
@@ -50,6 +107,68 @@ function getUrlParameter(name) {
   return urlParams.get(name);
 }
 
+// Gemstone component
+function Gemstone({ position, size, color, gemstoneType, visible, opacity }) {
+  const meshRef = useRef();
+
+  const gemstoneData =
+    GEMSTONE_PRESETS.find((g) => g.name === gemstoneType) ||
+    GEMSTONE_PRESETS[0];
+
+  const material = useMemo(() => {
+    return new THREE.MeshPhysicalMaterial({
+      color: new THREE.Color(color),
+      metalness: 0.0,
+      roughness: 0.0,
+      transmission: 0.9,
+      transparent: true,
+      opacity: opacity * gemstoneData.opacity,
+      refractionRatio: gemstoneData.refractionRatio,
+      clearcoat: 1.0,
+      clearcoatRoughness: 0.0,
+      ior: 1.5,
+      thickness: 0.5,
+    });
+  }, [color, gemstoneType, opacity, gemstoneData]);
+
+  if (!visible) return null;
+
+  return (
+    <mesh ref={meshRef} position={position} material={material}>
+      <octahedronGeometry args={[size, 2]} />
+    </mesh>
+  );
+}
+
+// Gemstones Group Component
+function GemstonesGroup({
+  jewelryType,
+  showGemstones,
+  gemstoneColor,
+  gemstoneType,
+  gemstoneOpacity,
+  activeGemstones,
+}) {
+  const positions =
+    GEMSTONE_POSITIONS[jewelryType] || GEMSTONE_POSITIONS.default;
+
+  return (
+    <group>
+      {positions.map((gem, index) => (
+        <Gemstone
+          key={index}
+          position={gem.position}
+          size={gem.size}
+          color={gemstoneColor}
+          gemstoneType={gemstoneType}
+          visible={showGemstones && activeGemstones[index]}
+          opacity={gemstoneOpacity}
+        />
+      ))}
+    </group>
+  );
+}
+
 // Accept a modelUrl prop for flexibility
 function Model({
   modelUrl,
@@ -59,7 +178,13 @@ function Model({
   texture,
   showGemstones,
   gemstoneColor,
+  gemstoneType,
   customMaterial,
+  agingEffect,
+  lightingPreset,
+  gemstoneOpacity,
+  activeGemstones,
+  jewelryType,
 }) {
   const gltf = useGLTF(modelUrl);
   const modelRef = useRef();
@@ -78,13 +203,15 @@ function Model({
     const preset = MATERIAL_PRESETS[materialType] || MATERIAL_PRESETS.gold;
     const textureProps =
       TEXTURE_OPTIONS.find((t) => t.name === texture) || TEXTURE_OPTIONS[0];
+    const aging =
+      AGING_EFFECTS.find((a) => a.name === agingEffect) || AGING_EFFECTS[0];
 
     return {
       color: materialType === "custom" ? color : preset.color,
-      metalness: textureProps.metalness,
-      roughness: textureProps.roughness,
+      metalness: textureProps.metalness * aging.metalness,
+      roughness: Math.max(textureProps.roughness, aging.roughness),
     };
-  }, [materialType, texture, color, customMaterial]);
+  }, [materialType, texture, color, customMaterial, agingEffect]);
 
   // Optimized material update function
   const updateMaterials = useCallback(
@@ -104,27 +231,10 @@ function Model({
           }
 
           child.material = materialsCache.current.get(materialKey);
-
-          // Handle gemstones conditionally
-          if (child.name && child.name.toLowerCase().includes("gem")) {
-            child.visible = showGemstones;
-            if (showGemstones && child.material) {
-              child.material.color = new THREE.Color(gemstoneColor);
-              child.material.metalness = 0.1;
-              child.material.roughness = 0.0;
-              child.material.transparent = true;
-              child.material.opacity = 0.9;
-            }
-          }
-
-          // Handle other conditional elements
-          if (child.name && child.name.toLowerCase().includes("stone")) {
-            child.visible = showGemstones;
-          }
         }
       });
     },
-    [materialProps, showGemstones, gemstoneColor]
+    [materialProps]
   );
 
   useEffect(() => {
@@ -134,16 +244,30 @@ function Model({
   }, [updateMaterials]);
 
   return (
-    <primitive
-      ref={modelRef}
-      object={gltf.scene}
-      scale={[scale, scale, scale]}
-      position={[0, -1, 0]}
-    />
+    <group>
+      <primitive
+        ref={modelRef}
+        object={gltf.scene}
+        scale={[scale, scale, scale]}
+        position={[0, -1, 0]}
+      />
+      <GemstonesGroup
+        jewelryType={jewelryType}
+        showGemstones={showGemstones}
+        gemstoneColor={gemstoneColor}
+        gemstoneType={gemstoneType}
+        gemstoneOpacity={gemstoneOpacity}
+        activeGemstones={activeGemstones}
+      />
+    </group>
   );
 }
 
-function BlurredBackground() {
+function BlurredBackground({ isCustom }) {
+  if (isCustom) {
+    return <div className="absolute inset-0 bg-white" />;
+  }
+
   return (
     <div
       className="absolute inset-0 bg-gradient-to-br from-gray-900 via-gray-800 to-black opacity-60"
@@ -166,12 +290,27 @@ export default function Home() {
 
   // State Management
   const [color, setColor] = useState("#ff0000");
-  const [scale, setScale] = useState(0.5);
+  const [scale, setScale] = useState(0.35); // Reduced default size
   const [materialType, setMaterialType] = useState("gold");
   const [texture, setTexture] = useState("Smooth");
   const [showGemstones, setShowGemstones] = useState(true);
-  const [gemstoneColor, setGemstoneColor] = useState("#0066ff");
+  const [gemstoneColor, setGemstoneColor] = useState("#ffffff");
+  const [gemstoneType, setGemstoneType] = useState("Diamond");
+  const [gemstoneOpacity, setGemstoneOpacity] = useState(0.9);
   const [modelUrl, setModelUrl] = useState(MODEL_URLS.default);
+  const [agingEffect, setAgingEffect] = useState("New");
+  const [lightingPreset, setLightingPreset] = useState("Studio");
+  const [jewelryType, setJewelryType] = useState("default");
+
+  // Active gemstones state - controls which gemstones are visible
+  const [activeGemstones, setActiveGemstones] = useState([
+    true,
+    true,
+    true,
+    true,
+    false,
+    false,
+  ]);
 
   // Custom material state
   const [customMaterial, setCustomMaterial] = useState({
@@ -185,6 +324,7 @@ export default function Home() {
   const [isSizeControlOpen, setIsSizeControlOpen] = useState(false);
   const [isMaterialPanelOpen, setIsMaterialPanelOpen] = useState(false);
   const [isGemstoneControlOpen, setIsGemstoneControlOpen] = useState(false);
+  const [isEffectsControlOpen, setIsEffectsControlOpen] = useState(false);
 
   // Get URL parameter on client-side only
   useEffect(() => {
@@ -196,7 +336,18 @@ export default function Home() {
   useEffect(() => {
     if (urlModelUrl) {
       setModelUrl(urlModelUrl);
-      console.log("Model URL updated from URL parameter:", urlModelUrl);
+      // Determine jewelry type from URL
+      const type =
+        Object.keys(MODEL_URLS).find(
+          (key) => MODEL_URLS[key] === urlModelUrl
+        ) || "default";
+      setJewelryType(type);
+      console.log(
+        "Model URL updated from URL parameter:",
+        urlModelUrl,
+        "Type:",
+        type
+      );
     }
   }, [urlModelUrl]);
 
@@ -208,7 +359,9 @@ export default function Home() {
   const handleMaterialChange = useCallback((newMaterialType) => {
     setMaterialType(newMaterialType);
     if (newMaterialType !== "custom") {
-      setColor(MATERIAL_PRESETS[newMaterialType].color);
+      const newColor = MATERIAL_PRESETS[newMaterialType].color;
+      setColor(newColor);
+      console.log("Material changed to:", newMaterialType, "Color:", newColor);
     }
   }, []);
 
@@ -219,165 +372,219 @@ export default function Home() {
     }));
   }, []);
 
+  // Toggle individual gemstone
+  const toggleGemstone = useCallback((index) => {
+    setActiveGemstones((prev) => {
+      const newState = [...prev];
+      newState[index] = !newState[index];
+      return newState;
+    });
+  }, []);
+
+  // Close all panels function
+  const closeAllPanels = useCallback(() => {
+    setIsColorPickerOpen(false);
+    setIsSizeControlOpen(false);
+    setIsMaterialPanelOpen(false);
+    setIsGemstoneControlOpen(false);
+    setIsEffectsControlOpen(false);
+  }, []);
+
+  // Get current lighting preset
+  const currentLighting =
+    LIGHTING_PRESETS.find((l) => l.name === lightingPreset) ||
+    LIGHTING_PRESETS[0];
+
+  // Get current gemstone positions
+  const currentGemstonePositions =
+    GEMSTONE_POSITIONS[jewelryType] || GEMSTONE_POSITIONS.default;
+
   // Log current model URL for debugging
   useEffect(() => {
-    console.log("Current model URL:", modelUrl);
-  }, [modelUrl]);
+    console.log("Current model URL:", modelUrl, "Jewelry Type:", jewelryType);
+  }, [modelUrl, jewelryType]);
 
   return (
-    <div className="w-screen h-screen bg-white flex items-center justify-center p-4 relative overflow-hidden">
-      <BlurredBackground />
+    <div className="w-screen h-screen bg-white flex items-center justify-center p-2 md:p-4 relative overflow-hidden">
+      <BlurredBackground isCustom={materialType === "custom"} />
 
-      <div
-        className="absolute inset-0 opacity-20 bg-gradient-to-br from-transparent via-gray-600 to-transparent"
-        style={{
-          backgroundImage: `
+      {!materialType === "custom" && (
+        <div
+          className="absolute inset-0 opacity-20 bg-gradient-to-br from-transparent via-gray-600 to-transparent"
+          style={{
+            backgroundImage: `
               radial-gradient(circle at 25% 25%, rgba(255,255,255,0.1) 0%, transparent 50%),
               radial-gradient(circle at 75% 75%, rgba(255,255,255,0.05) 0%, transparent 50%)
             `,
-          filter: "blur(100px)",
-        }}
-      />
+            filter: "blur(100px)",
+          }}
+        />
+      )}
 
-      <div className="relative w-full max-w-5xl h-full max-h-[700px] bg-black/40 backdrop-blur-xl rounded-3xl shadow-2xl overflow-hidden border border-gray-700/50 z-10">
-        {/* Left Control Panel */}
-        <div className="absolute top-4 left-4 md:top-6 md:left-6 z-20 space-y-3 max-w-xs">
+      <div
+        className={`relative w-full max-w-5xl h-full max-h-[700px] backdrop-blur-xl rounded-2xl md:rounded-3xl shadow-2xl overflow-hidden border-2 z-10 ${
+          materialType === "custom"
+            ? "bg-white/90 border-gray-300"
+            : "bg-black/40 border-gray-600/50"
+        }`}
+      >
+        {/* Compact Mobile Control Panel */}
+        <div className="absolute top-2 left-2 md:top-6 md:left-6 z-20 flex flex-wrap gap-2 md:flex-col md:space-y-3">
           {/* Color Control */}
-          <div>
-            <button
-              onClick={() => setIsColorPickerOpen(!isColorPickerOpen)}
-              className="w-12 h-12 md:w-14 md:h-14 rounded-lg border-2 border-gray-600/50 shadow-lg hover:scale-105 transition-transform duration-200 backdrop-blur-md"
-              style={{
-                backgroundColor:
-                  materialType === "custom" ? customMaterial.color : color,
-              }}
-              aria-label="Open color picker"
-            />
-          </div>
+          <button
+            onClick={() => {
+              closeAllPanels();
+              setIsColorPickerOpen(!isColorPickerOpen);
+            }}
+            className="w-10 h-10 md:w-14 md:h-14 rounded-lg border-2 border-gray-500/70 shadow-lg hover:scale-105 transition-transform duration-200 backdrop-blur-md"
+            style={{
+              backgroundColor:
+                materialType === "custom" ? customMaterial.color : color,
+            }}
+          />
 
           {/* Material Control */}
-          <div>
-            <button
-              onClick={() => setIsMaterialPanelOpen(!isMaterialPanelOpen)}
-              className="w-12 h-12 md:w-14 md:h-14 rounded-lg border-2 border-gray-600/50 shadow-lg hover:scale-105 transition-transform duration-200 bg-gradient-to-br from-yellow-600 to-yellow-800 backdrop-blur-md flex items-center justify-center"
-              aria-label="Open material controls"
+          <button
+            onClick={() => {
+              closeAllPanels();
+              setIsMaterialPanelOpen(!isMaterialPanelOpen);
+            }}
+            className="w-10 h-10 md:w-14 md:h-14 rounded-lg border-2 border-gray-500/70 shadow-lg hover:scale-105 transition-transform duration-200 bg-gradient-to-br from-yellow-600 to-yellow-800 backdrop-blur-md flex items-center justify-center"
+          >
+            <svg
+              width="16"
+              height="16"
+              className="md:w-5 md:h-5"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="white"
+              strokeWidth="2"
             >
-              <svg
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="white"
-                strokeWidth="2"
-              >
-                <path d="M12 2L2 22h20L12 2z" />
-              </svg>
-            </button>
-          </div>
+              <path d="M12 2L2 22h20L12 2z" />
+            </svg>
+          </button>
 
           {/* Size Control */}
-          <div>
-            <button
-              onClick={() => setIsSizeControlOpen(!isSizeControlOpen)}
-              className="w-12 h-12 md:w-14 md:h-14 rounded-lg border-2 border-gray-600/50 shadow-lg hover:scale-105 transition-transform duration-200 bg-gray-800/80 backdrop-blur-md flex items-center justify-center"
-              aria-label="Open size controls"
+          <button
+            onClick={() => {
+              closeAllPanels();
+              setIsSizeControlOpen(!isSizeControlOpen);
+            }}
+            className="w-10 h-10 md:w-14 md:h-14 rounded-lg border-2 border-gray-500/70 shadow-lg hover:scale-105 transition-transform duration-200 bg-gray-800/80 backdrop-blur-md flex items-center justify-center"
+          >
+            <svg
+              width="16"
+              height="16"
+              className="md:w-5 md:h-5"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="white"
+              strokeWidth="2"
             >
-              <svg
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="white"
-                strokeWidth="2"
-              >
-                <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
-              </svg>
-            </button>
-          </div>
+              <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
+            </svg>
+          </button>
 
           {/* Gemstone Control */}
-          <div>
-            <button
-              onClick={() => setIsGemstoneControlOpen(!isGemstoneControlOpen)}
-              className="w-12 h-12 md:w-14 md:h-14 rounded-lg border-2 border-gray-600/50 shadow-lg hover:scale-105 transition-transform duration-200 bg-gradient-to-br from-blue-600 to-purple-700 backdrop-blur-md flex items-center justify-center"
-              aria-label="Open gemstone controls"
+          <button
+            onClick={() => {
+              closeAllPanels();
+              setIsGemstoneControlOpen(!isGemstoneControlOpen);
+            }}
+            className="w-10 h-10 md:w-14 md:h-14 rounded-lg border-2 border-gray-500/70 shadow-lg hover:scale-105 transition-transform duration-200 bg-gradient-to-br from-blue-600 to-purple-700 backdrop-blur-md flex items-center justify-center"
+          >
+            <svg
+              width="16"
+              height="16"
+              className="md:w-5 md:h-5"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="white"
+              strokeWidth="2"
             >
-              <svg
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="white"
-                strokeWidth="2"
+              <path d="M6 3h12l4 6-10 13L2 9l4-6z" />
+            </svg>
+          </button>
+
+          {/* Effects Control */}
+          <button
+            onClick={() => {
+              closeAllPanels();
+              setIsEffectsControlOpen(!isEffectsControlOpen);
+            }}
+            className="w-10 h-10 md:w-14 md:h-14 rounded-lg border-2 border-gray-500/70 shadow-lg hover:scale-105 transition-transform duration-200 bg-gradient-to-br from-purple-600 to-pink-700 backdrop-blur-md flex items-center justify-center"
+          >
+            <svg
+              width="16"
+              height="16"
+              className="md:w-5 md:h-5"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="white"
+              strokeWidth="2"
+            >
+              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Compact Mobile-optimized Control Panels */}
+        {/* Color Picker Panel */}
+        {isColorPickerOpen && (
+          <div className="absolute top-14 left-2 md:top-6 md:left-20 z-30 bg-gray-900/95 backdrop-blur-xl p-3 rounded-xl shadow-xl border border-gray-600/50 w-48 md:w-64">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-sm font-medium text-gray-200 m-0">Color</p>
+              <button
+                onClick={() => setIsColorPickerOpen(false)}
+                className="text-gray-400 hover:text-gray-200 text-lg font-bold"
               >
-                <path d="M6 3h12l4 6-10 13L2 9l4-6z" />
-              </svg>
-            </button>
-          </div>
-
-          {/* Color Picker Panel */}
-          {isColorPickerOpen && (
-            <div className="bg-gray-900/90 backdrop-blur-xl p-4 rounded-xl shadow-xl border border-gray-600/30 w-64">
-              <div className="flex items-center justify-between mb-3">
-                <p className="text-sm font-medium text-gray-200 m-0">
-                  Pick Color
-                </p>
-                <button
-                  onClick={() => setIsColorPickerOpen(false)}
-                  className="text-gray-400 hover:text-gray-200 text-lg font-bold"
-                >
-                  ×
-                </button>
-              </div>
-
-              <div className="mb-4">
-                <HexColorPicker
-                  color={
-                    materialType === "custom" ? customMaterial.color : color
-                  }
-                  onChange={
-                    materialType === "custom"
-                      ? (color) => handleCustomMaterialChange("color", color)
-                      : setColor
-                  }
-                />
-              </div>
-
-              <div className="text-center">
-                <span className="text-xs text-gray-300 font-mono bg-gray-800/50 px-2 py-1 rounded">
-                  {(materialType === "custom"
-                    ? customMaterial.color
-                    : color
-                  ).toUpperCase()}
-                </span>
-              </div>
+                ×
+              </button>
             </div>
-          )}
+            <div className="mb-3">
+              <HexColorPicker
+                color={materialType === "custom" ? customMaterial.color : color}
+                onChange={(newColor) => {
+                  if (materialType === "custom") {
+                    handleCustomMaterialChange("color", newColor);
+                  } else {
+                    setColor(newColor);
+                    console.log("Color picker changed to:", newColor);
+                  }
+                }}
+              />
+            </div>
+            <div className="text-center">
+              <span className="text-xs text-gray-300 font-mono bg-gray-800/50 px-2 py-1 rounded">
+                {(materialType === "custom"
+                  ? customMaterial.color
+                  : color
+                ).toUpperCase()}
+              </span>
+            </div>
+          </div>
+        )}
 
-          {/* Material Panel */}
-          {isMaterialPanelOpen && (
-            <div className="bg-gray-900/90 backdrop-blur-xl p-4 rounded-xl shadow-xl border border-gray-600/30 w-72">
-              <div className="flex items-center justify-between mb-3">
-                <p className="text-sm font-medium text-gray-200 m-0">
-                  Material & Texture
-                </p>
-                <button
-                  onClick={() => setIsMaterialPanelOpen(false)}
-                  className="text-gray-400 hover:text-gray-200 text-lg font-bold"
-                >
-                  ×
-                </button>
-              </div>
+        {/* Compact Material Panel */}
+        {isMaterialPanelOpen && (
+          <div className="absolute top-14 left-2 md:top-6 md:left-20 z-30 bg-gray-900/95 backdrop-blur-xl p-3 rounded-xl shadow-xl border border-gray-600/50 w-56 md:w-72 max-h-80 overflow-y-auto">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-sm font-medium text-gray-200 m-0">Material</p>
+              <button
+                onClick={() => setIsMaterialPanelOpen(false)}
+                className="text-gray-400 hover:text-gray-200 text-lg font-bold"
+              >
+                ×
+              </button>
+            </div>
 
-              {/* Material Type */}
-              <div className="mb-4">
-                <label className="text-xs text-gray-400 mb-2 block">
-                  Material Type
-                </label>
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs text-gray-400 mb-1 block">Type</label>
                 <select
                   value={materialType}
                   onChange={(e) => handleMaterialChange(e.target.value)}
-                  className="w-full bg-gray-800/50 text-gray-200 border border-gray-600/30 rounded-lg px-3 py-2 text-sm"
+                  className="w-full bg-gray-800/50 text-gray-200 border border-gray-600/30 rounded-lg px-2 py-1.5 text-sm"
                 >
                   <option value="gold">Gold</option>
                   <option value="silver">Silver</option>
@@ -388,17 +595,16 @@ export default function Home() {
                 </select>
               </div>
 
-              {/* Texture */}
-              <div className="mb-4">
-                <label className="text-xs text-gray-400 mb-2 block">
-                  Surface Finish
+              <div>
+                <label className="text-xs text-gray-400 mb-1 block">
+                  Finish
                 </label>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 gap-1">
                   {TEXTURE_OPTIONS.map((textureOption) => (
                     <button
                       key={textureOption.name}
                       onClick={() => setTexture(textureOption.name)}
-                      className={`px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
+                      className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
                         texture === textureOption.name
                           ? "bg-blue-600 text-white"
                           : "bg-gray-700/50 text-gray-300 hover:bg-gray-600/50"
@@ -410,12 +616,11 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* Custom Material Controls */}
               {materialType === "custom" && (
-                <div className="space-y-3">
+                <div className="space-y-2">
                   <div>
                     <label className="text-xs text-gray-400 mb-1 block">
-                      Metalness: {customMaterial.metalness}
+                      Metal: {customMaterial.metalness.toFixed(1)}
                     </label>
                     <input
                       type="range"
@@ -429,13 +634,12 @@ export default function Home() {
                           Number.parseFloat(e.target.value)
                         )
                       }
-                      className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
+                      className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer"
                     />
                   </div>
-
                   <div>
                     <label className="text-xs text-gray-400 mb-1 block">
-                      Roughness: {customMaterial.roughness}
+                      Rough: {customMaterial.roughness.toFixed(1)}
                     </label>
                     <input
                       type="range"
@@ -449,39 +653,40 @@ export default function Home() {
                           Number.parseFloat(e.target.value)
                         )
                       }
-                      className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
+                      className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer"
                     />
                   </div>
                 </div>
               )}
             </div>
-          )}
+          </div>
+        )}
 
-          {/* Size Control Panel */}
-          {isSizeControlOpen && (
-            <div className="bg-gray-900/90 backdrop-blur-xl p-4 rounded-xl shadow-xl border border-gray-600/30 w-64">
-              <div className="flex items-center justify-between mb-3">
-                <p className="text-sm font-medium text-gray-200 m-0">
-                  Adjust Size
-                </p>
-                <button
-                  onClick={() => setIsSizeControlOpen(false)}
-                  className="text-gray-400 hover:text-gray-200 text-lg font-bold"
-                >
-                  ×
-                </button>
-              </div>
+        {/* Compact Size Control Panel */}
+        {isSizeControlOpen && (
+          <div className="absolute top-14 left-2 md:top-6 md:left-20 z-30 bg-gray-900/95 backdrop-blur-xl p-3 rounded-xl shadow-xl border border-gray-600/50 w-48 md:w-64">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-sm font-medium text-gray-200 m-0">Size</p>
+              <button
+                onClick={() => setIsSizeControlOpen(false)}
+                className="text-gray-400 hover:text-gray-200 text-lg font-bold"
+              >
+                ×
+              </button>
+            </div>
 
-              <div className="flex gap-2 mb-4">
+            <div className="space-y-3">
+              <div className="flex gap-1">
                 {[
-                  { label: "Small", value: 0.3 },
-                  { label: "Medium", value: 0.5 },
-                  { label: "Large", value: 0.8 },
+                  { label: "XS", value: 0.25 },
+                  { label: "S", value: 0.35 },
+                  { label: "M", value: 0.5 },
+                  { label: "L", value: 0.7 },
                 ].map(({ label, value }) => (
                   <button
                     key={label}
                     onClick={() => handleScaleChange(value)}
-                    className={`px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
+                    className={`px-2 py-1 rounded text-xs font-medium transition-colors flex-1 ${
                       Math.abs(scale - value) < 0.05
                         ? "bg-blue-600 text-white"
                         : "bg-gray-700/50 text-gray-300 hover:bg-gray-600/50"
@@ -492,159 +697,329 @@ export default function Home() {
                 ))}
               </div>
 
-              <div className="space-y-2">
+              <div>
                 <input
                   type="range"
                   min="0.1"
-                  max="1.5"
+                  max="1.2"
                   step="0.05"
                   value={scale}
                   onChange={(e) => setScale(Number.parseFloat(e.target.value))}
-                  className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
+                  className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer"
                 />
-                <div className="text-center">
-                  <span className="text-xs text-gray-300 font-mono bg-gray-800/50 px-2 py-1 rounded">
+                <div className="text-center mt-1">
+                  <span className="text-xs text-gray-300 font-mono bg-gray-800/50 px-2 py-0.5 rounded">
                     {Math.round(scale * 100)}%
                   </span>
                 </div>
               </div>
             </div>
-          )}
+          </div>
+        )}
 
-          {/* Gemstone Control Panel */}
-          {isGemstoneControlOpen && (
-            <div className="bg-gray-900/90 backdrop-blur-xl p-4 rounded-xl shadow-xl border border-gray-600/30 w-64">
-              <div className="flex items-center justify-between mb-3">
-                <p className="text-sm font-medium text-gray-200 m-0">
-                  Gemstones
-                </p>
+        {/* Enhanced Gemstone Control Panel */}
+        {isGemstoneControlOpen && (
+          <div className="absolute top-14 left-2 md:top-6 md:left-20 z-30 bg-gray-900/95 backdrop-blur-xl p-3 rounded-xl shadow-xl border border-gray-600/50 w-64 md:w-80 max-h-96 overflow-y-auto">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-sm font-medium text-gray-200 m-0">Gemstones</p>
+              <button
+                onClick={() => setIsGemstoneControlOpen(false)}
+                className="text-gray-400 hover:text-gray-200 text-lg font-bold"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-300">Show All</span>
                 <button
-                  onClick={() => setIsGemstoneControlOpen(false)}
-                  className="text-gray-400 hover:text-gray-200 text-lg font-bold"
+                  onClick={() => setShowGemstones(!showGemstones)}
+                  className={`w-10 h-5 rounded-full transition-colors relative ${
+                    showGemstones ? "bg-blue-600" : "bg-gray-600"
+                  }`}
                 >
-                  ×
+                  <div
+                    className={`w-4 h-4 bg-white rounded-full transition-transform absolute top-0.5 ${
+                      showGemstones
+                        ? "transform translate-x-5"
+                        : "transform translate-x-0.5"
+                    }`}
+                  />
                 </button>
               </div>
 
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-300">Show Gemstones</span>
-                  <button
-                    onClick={() => setShowGemstones(!showGemstones)}
-                    className={`w-12 h-6 rounded-full transition-colors ${
-                      showGemstones ? "bg-blue-600" : "bg-gray-600"
-                    }`}
-                  >
-                    <div
-                      className={`w-5 h-5 bg-white rounded-full transition-transform ${
-                        showGemstones
-                          ? "transform translate-x-6"
-                          : "transform translate-x-0.5"
-                      }`}
-                    />
-                  </button>
-                </div>
-
-                {showGemstones && (
+              {showGemstones && (
+                <>
+                  {/* Individual Gemstone Controls */}
                   <div>
                     <label className="text-xs text-gray-400 mb-2 block">
-                      Gemstone Color
+                      Individual Stones
+                    </label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {currentGemstonePositions.map((gem, index) => (
+                        <button
+                          key={index}
+                          onClick={() => toggleGemstone(index)}
+                          className={`px-2 py-2 rounded text-xs font-medium transition-colors flex items-center justify-center ${
+                            activeGemstones[index]
+                              ? "bg-blue-600 text-white"
+                              : "bg-gray-700/50 text-gray-300 hover:bg-gray-600/50"
+                          }`}
+                        >
+                          <div
+                            className="w-3 h-3 rounded-full border border-gray-400 mr-1"
+                            style={{
+                              backgroundColor: activeGemstones[index]
+                                ? gemstoneColor
+                                : "transparent",
+                            }}
+                          />
+                          {index + 1}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-xs text-gray-400 mb-1 block">
+                      Gemstone Type
+                    </label>
+                    <div className="grid grid-cols-2 gap-1">
+                      {GEMSTONE_PRESETS.map((gem) => (
+                        <button
+                          key={gem.name}
+                          onClick={() => {
+                            setGemstoneType(gem.name);
+                            setGemstoneColor(gem.color);
+                          }}
+                          className={`px-2 py-1 rounded text-xs font-medium transition-colors flex items-center gap-1 ${
+                            gemstoneType === gem.name
+                              ? "bg-blue-600 text-white"
+                              : "bg-gray-700/50 text-gray-300 hover:bg-gray-600/50"
+                          }`}
+                        >
+                          <div
+                            className="w-2 h-2 rounded-full border border-gray-400"
+                            style={{ backgroundColor: gem.color }}
+                          />
+                          {gem.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-xs text-gray-400 mb-1 block">
+                      Custom Color
                     </label>
                     <div className="flex items-center gap-2">
-                      <button
-                        className="w-8 h-8 rounded border-2 border-gray-600"
-                        style={{ backgroundColor: gemstoneColor }}
-                      />
                       <input
                         type="color"
                         value={gemstoneColor}
                         onChange={(e) => setGemstoneColor(e.target.value)}
-                        className="opacity-0 absolute w-8 h-8"
+                        className="w-6 h-6 rounded border border-gray-600 cursor-pointer"
                       />
                       <span className="text-xs text-gray-400 font-mono">
                         {gemstoneColor.toUpperCase()}
                       </span>
                     </div>
                   </div>
-                )}
+
+                  <div>
+                    <label className="text-xs text-gray-400 mb-1 block">
+                      Opacity: {gemstoneOpacity.toFixed(1)}
+                    </label>
+                    <input
+                      type="range"
+                      min="0.1"
+                      max="1"
+                      step="0.1"
+                      value={gemstoneOpacity}
+                      onChange={(e) =>
+                        setGemstoneOpacity(Number.parseFloat(e.target.value))
+                      }
+                      className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer"
+                    />
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Effects Control Panel */}
+        {isEffectsControlOpen && (
+          <div className="absolute top-14 left-2 md:top-6 md:left-20 z-30 bg-gray-900/95 backdrop-blur-xl p-3 rounded-xl shadow-xl border border-gray-600/50 w-56 md:w-72 max-h-80 overflow-y-auto">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-sm font-medium text-gray-200 m-0">Effects</p>
+              <button
+                onClick={() => setIsEffectsControlOpen(false)}
+                className="text-gray-400 hover:text-gray-200 text-lg font-bold"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs text-gray-400 mb-1 block">
+                  Aging
+                </label>
+                <div className="grid grid-cols-2 gap-1">
+                  {AGING_EFFECTS.map((effect) => (
+                    <button
+                      key={effect.name}
+                      onClick={() => setAgingEffect(effect.name)}
+                      className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
+                        agingEffect === effect.name
+                          ? "bg-purple-600 text-white"
+                          : "bg-gray-700/50 text-gray-300 hover:bg-gray-600/50"
+                      }`}
+                    >
+                      {effect.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs text-gray-400 mb-1 block">
+                  Lighting
+                </label>
+                <div className="grid grid-cols-2 gap-1">
+                  {LIGHTING_PRESETS.map((preset) => (
+                    <button
+                      key={preset.name}
+                      onClick={() => setLightingPreset(preset.name)}
+                      className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
+                        lightingPreset === preset.name
+                          ? "bg-yellow-600 text-white"
+                          : "bg-gray-700/50 text-gray-300 hover:bg-gray-600/50"
+                      }`}
+                    >
+                      {preset.name}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
-        {/* Instructions */}
-        <div className="absolute top-4 right-4 md:top-6 md:right-6 z-20">
-          <div className="bg-gray-900/70 backdrop-blur-md p-3 rounded-lg shadow-lg max-w-xs border border-gray-600/30">
-            <p className="text-xs md:text-sm text-gray-200 m-0">
-              Customize material, color & size • Toggle gemstones • Drag to
-              rotate
+        {/* Mobile-optimized Instructions */}
+        <div className="absolute top-2 right-2 md:top-6 md:right-6 z-20">
+          <div
+            className={`backdrop-blur-md p-2 md:p-3 rounded-lg shadow-lg max-w-xs border ${
+              materialType === "custom"
+                ? "bg-gray-100/90 border-gray-300 text-gray-800"
+                : "bg-gray-900/80 border-gray-600/50 text-gray-200"
+            }`}
+          >
+            <p className="text-xs md:text-sm m-0">
+              Touch to rotate • Pinch to zoom
             </p>
           </div>
         </div>
 
         {/* Model URL Display for Debugging */}
-        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-20">
-          <div className="bg-gray-900/70 backdrop-blur-md p-2 rounded-lg shadow-lg max-w-md border border-gray-600/30">
-            <p className="text-xs text-gray-300 m-0 text-center">
-              Model: {modelUrl ? modelUrl.split("/").pop() : "Loading..."}
+        <div className="absolute top-2 left-1/2 transform -translate-x-1/2 z-20 hidden md:block">
+          <div
+            className={`backdrop-blur-md p-2 rounded-lg shadow-lg max-w-md border ${
+              materialType === "custom"
+                ? "bg-gray-100/90 border-gray-300 text-gray-800"
+                : "bg-gray-900/80 border-gray-600/50 text-gray-300"
+            }`}
+          >
+            <p className="text-xs m-0 text-center">
+              {jewelryType.charAt(0).toUpperCase() + jewelryType.slice(1)} •{" "}
+              {activeGemstones.filter(Boolean).length} stones
             </p>
           </div>
         </div>
 
-        {/* 3D Canvas */}
-        <Canvas
-          className="w-full h-full"
-          style={{
-            background:
-              "radial-gradient(circle at center, rgba(30,30,30,0.8) 0%, rgba(0,0,0,0.9) 100%)",
-          }}
-          camera={{ position: [0, 1, 5], fov: 50 }}
-        >
-          <ambientLight intensity={0.3} />
-          <directionalLight position={[5, 5, 5]} intensity={1.8} castShadow />
-          <directionalLight position={[-5, 3, 2]} intensity={1.2} />
-          <pointLight position={[0, 10, 0]} intensity={0.8} />
-          <spotLight
-            position={[0, 10, 5]}
-            intensity={1.5}
-            angle={0.3}
-            penumbra={0.5}
-            castShadow
-          />
+        {/* 3D Canvas with enhanced border */}
+        <div className="w-full h-full border-4 border-gray-600/30 rounded-2xl md:rounded-3xl overflow-hidden">
+          <Canvas
+            className="w-full h-full"
+            style={{
+              background:
+                materialType === "custom"
+                  ? "linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)"
+                  : "radial-gradient(circle at center, rgba(30,30,30,0.8) 0%, rgba(0,0,0,0.9) 100%)",
+            }}
+            camera={{ position: [0, 1, 5], fov: 50 }}
+          >
+            <ambientLight intensity={currentLighting.ambient} />
+            <directionalLight
+              position={[5, 5, 5]}
+              intensity={currentLighting.directional}
+              castShadow
+            />
+            <directionalLight
+              position={[-5, 3, 2]}
+              intensity={currentLighting.directional * 0.7}
+            />
+            <pointLight
+              position={[0, 10, 0]}
+              intensity={currentLighting.point}
+            />
+            <spotLight
+              position={[0, 10, 5]}
+              intensity={currentLighting.spot}
+              angle={0.3}
+              penumbra={0.5}
+              castShadow
+            />
 
-          <OrbitControls
-            enablePan={true}
-            enableZoom={true}
-            enableRotate={true}
-            minDistance={2}
-            maxDistance={10}
-            maxPolarAngle={Math.PI / 2}
-          />
+            <OrbitControls
+              enablePan={true}
+              enableZoom={true}
+              enableRotate={true}
+              minDistance={2}
+              maxDistance={10}
+              maxPolarAngle={Math.PI / 2}
+            />
 
-          {/* Pass modelUrl */}
-          <Model
-            modelUrl={modelUrl}
-            color={color}
-            scale={scale}
-            materialType={materialType}
-            texture={texture}
-            showGemstones={showGemstones}
-            gemstoneColor={gemstoneColor}
-            customMaterial={customMaterial}
-          />
-        </Canvas>
+            <Model
+              modelUrl={modelUrl}
+              color={color}
+              scale={scale}
+              materialType={materialType}
+              texture={texture}
+              showGemstones={showGemstones}
+              gemstoneColor={gemstoneColor}
+              gemstoneType={gemstoneType}
+              customMaterial={customMaterial}
+              agingEffect={agingEffect}
+              lightingPreset={lightingPreset}
+              gemstoneOpacity={gemstoneOpacity}
+              activeGemstones={activeGemstones}
+              jewelryType={jewelryType}
+            />
+          </Canvas>
+        </div>
 
-        {/* Status Bar */}
-        <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-20">
-          <div className="bg-gray-900/60 backdrop-blur-md text-gray-200 px-4 py-2 rounded-full text-xs border border-gray-600/30 flex items-center gap-4">
-            <span>
-              Material:{" "}
+        {/* Enhanced Mobile-friendly Status Bar */}
+        <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 z-20">
+          <div
+            className={`backdrop-blur-md px-3 py-1.5 md:px-4 md:py-2 rounded-full text-xs border flex items-center gap-2 md:gap-4 ${
+              materialType === "custom"
+                ? "bg-gray-100/90 border-gray-300 text-gray-800"
+                : "bg-gray-900/80 border-gray-600/50 text-gray-200"
+            }`}
+          >
+            <span className="hidden md:inline">
               {materialType.charAt(0).toUpperCase() + materialType.slice(1)}
             </span>
+            <span className="hidden md:inline">•</span>
+            <span>{Math.round(scale * 100)}%</span>
             <span>•</span>
-            <span>Size: {Math.round(scale * 100)}%</span>
+            <span>
+              {activeGemstones.filter(Boolean).length} {gemstoneType}s
+            </span>
             <span>•</span>
-            <span>Gems: {showGemstones ? "On" : "Off"}</span>
+            <span className="hidden sm:inline">{agingEffect}</span>
           </div>
         </div>
       </div>
