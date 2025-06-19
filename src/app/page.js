@@ -445,7 +445,6 @@ function Model({
         roughness: customMaterial.roughness,
       };
     }
-
     const preset = MATERIAL_PRESETS[materialType] || MATERIAL_PRESETS.gold;
     const textureProps =
       TEXTURE_OPTIONS.find((t) => t.name === texture) || TEXTURE_OPTIONS[0];
@@ -453,7 +452,7 @@ function Model({
       AGING_EFFECTS.find((a) => a.name === agingEffect) || AGING_EFFECTS[0];
 
     return {
-      color: materialType === "custom" ? color : preset.color,
+      color,
       metalness: textureProps.metalness * aging.metalness,
       roughness: Math.max(textureProps.roughness, aging.roughness),
     };
@@ -1388,9 +1387,9 @@ export default function Home() {
             }`}
           >
             <p className="text-xs md:text-sm m-0">
-              {isDragMode
-                ? "🎯 Drag Mode: Click & drag gems!"
-                : "Touch to rotate • Pinch to zoom"}
+        
+        
+      
             </p>
           </div>
         </div>
