@@ -628,7 +628,7 @@ export default function Home() {
   const [scale, setScale] = useState(0.35); // Reduced default size
   const [materialType, setMaterialType] = useState("gold");
   const [texture, setTexture] = useState("Smooth");
-  const [showGemstones, setShowGemstones] = useState(true);
+  const [showGemstones, setShowGemstones] = useState(false);
   const [gemstoneColor, setGemstoneColor] = useState("#ffffff");
   const [gemstoneType, setGemstoneType] = useState("Diamond");
   const [gemstoneCut, setGemstoneCut] = useState("Round");
@@ -780,9 +780,33 @@ export default function Home() {
     return `${activeCount} Stones`;
   };
 
+  // Download Image Handler
+  const handleDownloadImage = useCallback(() => {
+    // Find the canvas element rendered by react-three-fiber
+    const canvas = document.querySelector('canvas');
+    if (!canvas) return;
+    const image = canvas.toDataURL('image/png');
+    const link = document.createElement('a');
+    link.href = image;
+    link.download = 'jewelry_design.png';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }, []);
+
   return (
     <div className="w-screen h-screen bg-white flex items-center justify-center p-2 md:p-4 relative overflow-hidden">
       <BlurredBackground isCustom={materialType === "custom"} />
+
+      {/* Download Image Button Only */}
+      <div className="absolute top-2 right-2 z-30 flex gap-2">
+        <button
+          onClick={handleDownloadImage}
+          className="px-3 py-1.5 rounded bg-blue-600 text-white font-medium shadow hover:bg-blue-700 transition"
+        >
+          Download Image
+        </button>
+      </div>
 
       {!materialType === "custom" && (
         <div
@@ -1422,6 +1446,7 @@ export default function Home() {
                   : "radial-gradient(circle at center, rgba(30,30,30,0.8) 0%, rgba(0,0,0,0.9) 100%)",
             }}
             camera={{ position: [0, 1, 5], fov: 50 }}
+            gl={{ preserveDrawingBuffer: true }}
           >
             <Scene
               modelUrl={modelUrl}
