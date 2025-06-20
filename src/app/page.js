@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState, useMemo, useCallback } from "react";
-import { Canvas } from "@react-three/fiber";
+import { Canvas, useThree } from "@react-three/fiber";
 import { OrbitControls, useGLTF } from "@react-three/drei";
 import { HexColorPicker } from "react-colorful";
 import * as THREE from "three";
@@ -77,6 +77,45 @@ const MODEL_URLS = {
     "https://res.cloudinary.com/dkpo8ys7l/image/upload/v1748886308/tops_mqoa35.glb",
   default:
     "https://res.cloudinary.com/dkpo8ys7l/image/upload/v1748886308/tops_mqoa35.glb",
+};
+
+const RING_SIZES = [
+  { us: 5, mm: 15.7 },
+  { us: 6, mm: 16.5 },
+  { us: 7, mm: 17.3 },
+  { us: 8, mm: 18.1 },
+  { us: 9, mm: 18.9 },
+  { us: 10, mm: 19.8 },
+  // ...add more
+];
+
+// Size options for all jewelry types
+const SIZE_OPTIONS = {
+  rings: [
+    { label: "US 5 (15.7mm)", value: 15.7 },
+    { label: "US 6 (16.5mm)", value: 16.5 },
+    { label: "US 7 (17.3mm)", value: 17.3 },
+    { label: "US 8 (18.1mm)", value: 18.1 },
+    { label: "US 9 (18.9mm)", value: 18.9 },
+    { label: "US 10 (19.8mm)", value: 19.8 },
+  ],
+  bracelets: [
+    { label: "Small (160mm)", value: 160 },
+    { label: "Medium (180mm)", value: 180 },
+    { label: "Large (200mm)", value: 200 },
+  ],
+  necklaces: [
+    { label: "Choker (350mm)", value: 350 },
+    { label: "Princess (450mm)", value: 450 },
+    { label: "Matinee (550mm)", value: 550 },
+    { label: "Opera (700mm)", value: 700 },
+  ],
+};
+
+const DEFAULT_SIZES = {
+  rings: 17.3,        // mm (US 7)
+  bracelets: 180,     // mm (Medium)
+  necklaces: 450,     // mm (Princess)
 };
 
 // Function to get URL parameters - Fixed to handle server-side rendering
@@ -209,10 +248,12 @@ function DraggableGemstone({
   isSelected,
   onSelect,
   controlsRef,
+  camera,
+  canvasRef,
 }) {
   const meshRef = useRef();
   const [isDragging, setIsDragging] = useState(false);
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [offset, setOffset] = useState([0, 0, 0]);
 
   const gemstoneData =
     GEMSTONE_PRESETS.find((g) => g.name === gemstoneType) ||
@@ -248,53 +289,67 @@ function DraggableGemstone({
     });
   }, [color, gemstoneType, opacity, gemstoneData, isSelected]);
 
+  // Raycaster and plane for smooth drag
+  const raycaster = useRef(new THREE.Raycaster());
+  const plane = useRef(new THREE.Plane(new THREE.Vector3(0, 0, 1), 0));
+  const mouse = useRef(new THREE.Vector2());
+
+  // Smooth position state for lerp
+  const [smoothPosition, setSmoothPosition] = useState(position);
+
   // Handle mouse events for dragging
   const handlePointerDown = useCallback(
     (event) => {
       if (!isDragMode) return;
-
       event.stopPropagation();
       setIsDragging(true);
-      setDragStart({ x: event.clientX, y: event.clientY });
       onSelect(id);
-
-      // Disable orbit controls during drag
+      if (meshRef.current && camera && canvasRef && canvasRef.current) {
+        const rect = canvasRef.current.getBoundingClientRect();
+        mouse.current.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+        mouse.current.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+        plane.current.set(new THREE.Vector3(0, 0, 1), -position[2]);
+        raycaster.current.setFromCamera(mouse.current, camera);
+        const intersect = new THREE.Vector3();
+        raycaster.current.ray.intersectPlane(plane.current, intersect);
+        setOffset([
+          position[0] - intersect.x,
+          position[1] - intersect.y,
+          0,
+        ]);
+      }
       if (controlsRef && controlsRef.current) {
         controlsRef.current.enabled = false;
       }
     },
-    [isDragMode, id, onSelect, controlsRef]
+    [isDragMode, id, onSelect, controlsRef, position, camera, canvasRef]
   );
 
   const handlePointerMove = useCallback(
     (event) => {
       if (!isDragging || !isDragMode) return;
-
-      const deltaX = (event.clientX - dragStart.x) * 0.01;
-      const deltaY = -(event.clientY - dragStart.y) * 0.01;
-
-      // Convert screen space movement to world space
-      const newPosition = [
-        position[0] + deltaX,
-        position[1] + deltaY,
-        position[2],
-      ];
-
-      // Constrain to reasonable bounds
-      newPosition[0] = Math.max(-1, Math.min(1, newPosition[0]));
-      newPosition[1] = Math.max(-1, Math.min(1, newPosition[1]));
-
+      if (!camera || !canvasRef || !canvasRef.current) return;
+      const rect = canvasRef.current.getBoundingClientRect();
+      mouse.current.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.current.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+      plane.current.set(new THREE.Vector3(0, 0, 1), -position[2]);
+      raycaster.current.setFromCamera(mouse.current, camera);
+      const intersect = new THREE.Vector3();
+      raycaster.current.ray.intersectPlane(plane.current, intersect);
+      let newX = intersect.x + offset[0];
+      let newY = intersect.y + offset[1];
+      newX = Math.max(-1, Math.min(1, newX));
+      newY = Math.max(-1, Math.min(1, newY));
+      const newPosition = [newX, newY, position[2]];
       onPositionChange(id, newPosition);
-      setDragStart({ x: event.clientX, y: event.clientY });
+      setSmoothPosition(newPosition);
     },
-    [isDragging, isDragMode, dragStart, position, id, onPositionChange]
+    [isDragging, isDragMode, position, id, onPositionChange, offset, camera, canvasRef]
   );
 
   const handlePointerUp = useCallback(() => {
     if (!isDragging) return;
-
     setIsDragging(false);
-
     // Re-enable orbit controls
     if (controlsRef && controlsRef.current) {
       controlsRef.current.enabled = !isDragMode;
@@ -306,13 +361,17 @@ function DraggableGemstone({
     if (isDragging) {
       document.addEventListener("pointermove", handlePointerMove);
       document.addEventListener("pointerup", handlePointerUp);
-
       return () => {
         document.removeEventListener("pointermove", handlePointerMove);
         document.removeEventListener("pointerup", handlePointerUp);
       };
     }
   }, [isDragging, handlePointerMove, handlePointerUp]);
+
+  // Lerp for smooth movement
+  useEffect(() => {
+    if (!isDragging) setSmoothPosition(position);
+  }, [position, isDragging]);
 
   useEffect(() => {
     return () => {
@@ -326,7 +385,7 @@ function DraggableGemstone({
     <group>
       <mesh
         ref={meshRef}
-        position={position}
+        position={smoothPosition}
         material={material}
         geometry={geometry}
         onPointerDown={handlePointerDown}
@@ -337,22 +396,6 @@ function DraggableGemstone({
           isDragMode && (document.body.style.cursor = "default")
         }
       >
-        {/* Selection indicator */}
-        {isSelected && (
-          <mesh scale={[1.3, 1.3, 1.3]}>
-            <ringGeometry args={[size * 1.2, size * 1.4, 32]} />
-            <meshBasicMaterial color="#00ff00" transparent opacity={0.5} />
-          </mesh>
-        )}
-
-        {/* Drag mode indicator */}
-        {isDragMode && (
-          <mesh scale={[1.1, 1.1, 1.1]}>
-            <ringGeometry args={[size * 1.1, size * 1.2, 16]} />
-            <meshBasicMaterial color="#ffff00" transparent opacity={0.3} />
-          </mesh>
-        )}
-
         {/* Inner reflection geometry for more sparkle */}
         <mesh scale={[0.8, 0.8, 0.8]}>
           <sphereGeometry args={[size * 0.3, 16, 16]} />
@@ -384,6 +427,8 @@ function GemstonesGroup({
   selectedGemstone,
   onGemstoneSelect,
   controlsRef,
+  camera,
+  canvasRef,
 }) {
   return (
     <group>
@@ -403,6 +448,8 @@ function GemstonesGroup({
           isSelected={selectedGemstone === index}
           onSelect={onGemstoneSelect}
           controlsRef={controlsRef}
+          camera={camera}
+          canvasRef={canvasRef}
         />
       ))}
     </group>
@@ -431,6 +478,8 @@ function Model({
   selectedGemstone,
   onGemstoneSelect,
   controlsRef,
+  camera,
+  canvasRef,
 }) {
   const gltf = useGLTF(modelUrl);
   const modelRef = useRef();
@@ -509,6 +558,8 @@ function Model({
         selectedGemstone={selectedGemstone}
         onGemstoneSelect={onGemstoneSelect}
         controlsRef={controlsRef}
+        camera={camera}
+        canvasRef={canvasRef}
       />
     </group>
   );
@@ -556,11 +607,13 @@ function Scene({
   isDragMode,
   selectedGemstone,
   onGemstoneSelect,
+  canvasRef,
 }) {
   const controlsRef = useRef();
   const currentLighting =
     LIGHTING_PRESETS.find((l) => l.name === lightingPreset) ||
     LIGHTING_PRESETS[0];
+  const { camera } = useThree();
 
   return (
     <>
@@ -614,6 +667,8 @@ function Scene({
         selectedGemstone={selectedGemstone}
         onGemstoneSelect={onGemstoneSelect}
         controlsRef={controlsRef}
+        camera={camera}
+        canvasRef={canvasRef}
       />
     </>
   );
@@ -793,6 +848,24 @@ export default function Home() {
     link.click();
     document.body.removeChild(link);
   }, []);
+
+  const [selectedSize, setSelectedSize] = useState(DEFAULT_SIZES[jewelryType] || 17.3);
+
+  // Update selectedSize and scale when jewelryType changes
+  useEffect(() => {
+    setSelectedSize(DEFAULT_SIZES[jewelryType] || 17.3);
+    setScale(0.35); // Reset scale to default for new type
+  }, [jewelryType]);
+
+  // Universal size change handler
+  const handleSizeChange = (value) => {
+    setSelectedSize(value);
+    const defaultSize = DEFAULT_SIZES[jewelryType] || 17.3;
+    const scaleFactor = value / defaultSize;
+    setScale(0.35 * scaleFactor);
+  };
+
+  const canvasRef = useRef();
 
   return (
     <div className="w-screen h-screen bg-white flex items-center justify-center p-2 md:p-4 relative overflow-hidden">
@@ -1301,7 +1374,26 @@ export default function Home() {
             </div>
 
             <div className="space-y-3">
-              <div className="flex gap-1">
+              {/* Universal Size Selector */}
+              {SIZE_OPTIONS[jewelryType] && (
+                <div className="mb-2">
+                  <label className="text-xs text-gray-400 mb-1 block">
+                    {jewelryType.charAt(0).toUpperCase() + jewelryType.slice(1)} Size
+                  </label>
+                  <select
+                    value={selectedSize}
+                    onChange={e => handleSizeChange(Number(e.target.value))}
+                    className="w-full bg-gray-800/50 text-gray-200 border border-gray-600/30 rounded-lg px-2 py-1.5 text-sm"
+                  >
+                    {SIZE_OPTIONS[jewelryType].map(opt => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* XS/S/M/L Quick Buttons and Scale Slider (for all types) */}
+              <div className="flex gap-1 mt-2">
                 {[
                   { label: "XS", value: 0.25 },
                   { label: "S", value: 0.35 },
@@ -1310,7 +1402,7 @@ export default function Home() {
                 ].map(({ label, value }) => (
                   <button
                     key={label}
-                    onClick={() => handleScaleChange(value)}
+                    onClick={() => setScale(value)}
                     className={`px-2 py-1 rounded text-xs font-medium transition-colors flex-1 ${
                       Math.abs(scale - value) < 0.05
                         ? "bg-blue-600 text-white"
@@ -1438,6 +1530,7 @@ export default function Home() {
         {/* 3D Canvas with enhanced border */}
         <div className="w-full h-full border-4 border-gray-600/30 rounded-2xl md:rounded-3xl overflow-hidden">
           <Canvas
+            ref={canvasRef}
             className="w-full h-full"
             style={{
               background:
@@ -1468,6 +1561,7 @@ export default function Home() {
               isDragMode={isDragMode}
               selectedGemstone={selectedGemstone}
               onGemstoneSelect={handleGemstoneSelect}
+              canvasRef={canvasRef}
             />
           </Canvas>
         </div>
