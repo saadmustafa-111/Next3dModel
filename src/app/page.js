@@ -4,8 +4,8 @@ import { Canvas, useThree } from "@react-three/fiber";
 import { OrbitControls, useGLTF } from "@react-three/drei";
 import { HexColorPicker } from "react-colorful";
 import * as THREE from "three";
-import { db } from "../app/firebase";
-import { collection, addDoc, serverTimestamp } from "../app/firebase";
+import { db } from "./firebase";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 
 // Material presets for performance optimization
 const MATERIAL_PRESETS = {
