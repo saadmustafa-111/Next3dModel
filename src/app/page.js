@@ -4,6 +4,8 @@ import { Canvas, useThree } from "@react-three/fiber";
 import { OrbitControls, useGLTF } from "@react-three/drei";
 import { HexColorPicker } from "react-colorful";
 import * as THREE from "three";
+import { db } from "../app/firebase";
+import { collection, addDoc, serverTimestamp } from "../app/firebase";
 
 // Material presets for performance optimization
 const MATERIAL_PRESETS = {
@@ -675,8 +677,9 @@ function Scene({
 }
 
 export default function Home() {
-  // Get modelUrl from URL parameter - Now safely handles SSR
+  // Get modelUrl and customerId from URL parameter - Now safely handles SSR
   const [urlModelUrl, setUrlModelUrl] = useState(null);
+  const [customerId, setCustomerId] = useState(null);
 
   // State Management
   const [color, setColor] = useState("#ff0000");
@@ -725,6 +728,8 @@ export default function Home() {
   useEffect(() => {
     const urlParam = getUrlParameter("modelUrl");
     setUrlModelUrl(urlParam);
+    const customerIdParam = getUrlParameter("customerId");
+    setCustomerId(customerIdParam);
   }, []);
 
   // Update modelUrl when URL parameter changes
@@ -741,10 +746,12 @@ export default function Home() {
         "Model URL updated from URL parameter:",
         urlModelUrl,
         "Type:",
-        type
+        type,
+        "Customer ID:",
+        customerId
       );
     }
-  }, [urlModelUrl]);
+  }, [urlModelUrl, customerId]);
 
   // Handle gemstone position changes
   const handleGemstonePositionChange = useCallback(
@@ -824,8 +831,8 @@ export default function Home() {
 
   // Log current model URL for debugging
   useEffect(() => {
-    console.log("Current model URL:", modelUrl, "Jewelry Type:", jewelryType);
-  }, [modelUrl, jewelryType]);
+    console.log("Current model URL:", modelUrl, "Jewelry Type:", jewelryType, "Customer ID:", customerId);
+  }, [modelUrl, jewelryType, customerId]);
 
   const getActivePresetName = () => {
     const activeCount = gemstonePositions.filter((gem) => gem.visible).length;
@@ -867,6 +874,39 @@ export default function Home() {
 
   const canvasRef = useRef();
 
+  // Order Custom Design Handler
+  const handleOrderCustomDesign = async () => {
+    if (!customerId) {
+      alert("No customer ID found in URL.");
+      return;
+    }
+    const order = {
+      customerId,
+      modelUrl,
+      color,
+      scale,
+      materialType,
+      texture,
+      showGemstones,
+      gemstoneColor,
+      gemstoneType,
+      gemstoneCut,
+      gemstoneOpacity,
+      agingEffect,
+      lightingPreset,
+      jewelryType,
+      gemstonePositions,
+      customMaterial,
+      createdAt: serverTimestamp(),
+    };
+    try {
+      await addDoc(collection(db, "orders"), order);
+      alert("Order placed successfully!");
+    } catch (error) {
+      alert("Failed to place order: " + error.message);
+    }
+  };
+
   return (
     <div className="w-screen h-screen bg-white flex items-center justify-center p-2 md:p-4 relative overflow-hidden">
       <BlurredBackground isCustom={materialType === "custom"} />
@@ -878,6 +918,12 @@ export default function Home() {
           className="px-3 py-1.5 rounded bg-blue-600 text-white font-medium shadow hover:bg-blue-700 transition"
         >
           Download Image
+        </button>
+        <button
+          onClick={handleOrderCustomDesign}
+          className="px-3 py-1.5 rounded bg-green-600 text-white font-medium shadow hover:bg-green-700 transition"
+        >
+          Order Custom Design
         </button>
       </div>
 
@@ -1492,23 +1538,6 @@ export default function Home() {
             </div>
           </div>
         )}
-
-        {/* Mobile-optimized Instructions */}
-        <div className="absolute top-2 right-2 md:top-6 md:right-6 z-20">
-          <div
-            className={`backdrop-blur-md p-2 md:p-3 rounded-lg shadow-lg max-w-xs border ${
-              materialType === "custom"
-                ? "bg-gray-100/90 border-gray-300 text-gray-800"
-                : "bg-gray-900/80 border-gray-600/50 text-gray-200"
-            }`}
-          >
-            <p className="text-xs md:text-sm m-0">
-        
-        
-      
-            </p>
-          </div>
-        </div>
 
         {/* Model URL Display for Debugging */}
         <div className="absolute top-2 left-1/2 transform -translate-x-1/2 z-20 hidden md:block">
