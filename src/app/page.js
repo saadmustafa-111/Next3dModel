@@ -677,9 +677,10 @@ function Scene({
 }
 
 export default function Home() {
-  // Get modelUrl and customerId from URL parameter - Now safely handles SSR
+  // Get modelUrl, customerId, and sellerId from URL parameter - Now safely handles SSR
   const [urlModelUrl, setUrlModelUrl] = useState(null);
   const [customerId, setCustomerId] = useState(null);
+  const [sellerId, setSellerId] = useState(null);
 
   // State Management
   const [color, setColor] = useState("#ff0000");
@@ -730,6 +731,8 @@ export default function Home() {
     setUrlModelUrl(urlParam);
     const customerIdParam = getUrlParameter("customerId");
     setCustomerId(customerIdParam);
+    const sellerIdParam = getUrlParameter("sellerId");
+    setSellerId(sellerIdParam);
   }, []);
 
   // Update modelUrl when URL parameter changes
@@ -880,8 +883,13 @@ export default function Home() {
       alert("No customer ID found in URL.");
       return;
     }
+    if (!sellerId) {
+      alert("No seller ID found in URL.");
+      return;
+    }
     const order = {
       customerId,
+      sellerId,
       modelUrl,
       color,
       scale,
