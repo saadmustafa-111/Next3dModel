@@ -900,7 +900,7 @@ export default function Home() {
       createdAt: serverTimestamp(),
     };
     try {
-      await addDoc(collection(db, "orders"), order);
+      await addDoc(collection(db, "customOrders"), order);
       alert("Order placed successfully!");
     } catch (error) {
       alert("Failed to place order: " + error.message);
