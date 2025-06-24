@@ -20,7 +20,12 @@ const firebaseConfig = {
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
+
+// Only initialize analytics in the browser
+let analytics;
+if (typeof window !== "undefined") {
+  analytics = getAnalytics(app);
+}
 
 // Initialize Firebase services
 const auth = getAuth(app);
