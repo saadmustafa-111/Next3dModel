@@ -226,6 +226,7 @@ function DraggableGemstone({
   controlsRef,
   camera,
   canvasRef,
+  materialType,
 }) {
   const meshRef = useRef();
   const [isDragging, setIsDragging] = useState(false);
@@ -241,14 +242,13 @@ function DraggableGemstone({
     [cutData.shape, size]
   );
 
+  // Use materialType for gold/silver look
+  const matPreset = MATERIAL_PRESETS[materialType] || MATERIAL_PRESETS.gold;
   const material = useMemo(() => {
-    const baseColor = isSelected
-      ? new THREE.Color(color).multiplyScalar(1.5)
-      : new THREE.Color(color);
     return new THREE.MeshPhysicalMaterial({
-      color: baseColor,
-      metalness: 0.0,
-      roughness: 0.0,
+      color: new THREE.Color(matPreset.color),
+      metalness: matPreset.metalness,
+      roughness: matPreset.roughness,
       transmission: 0.98,
       transparent: true,
       opacity: opacity * gemstoneData.opacity * (isSelected ? 1.2 : 1),
@@ -263,27 +263,26 @@ function DraggableGemstone({
       iridescence: 0.3,
       iridescenceIOR: 1.3,
     });
-  }, [color, gemstoneType, opacity, gemstoneData, isSelected]);
+  }, [matPreset, opacity, gemstoneData, isSelected]);
 
-  // Raycaster and plane for smooth drag
+  // Raycaster and plane for smooth drag (support touch and mouse)
   const raycaster = useRef(new THREE.Raycaster());
   const plane = useRef(new THREE.Plane(new THREE.Vector3(0, 0, 1), 0));
   const mouse = useRef(new THREE.Vector2());
-
-  // Smooth position state for lerp
   const [smoothPosition, setSmoothPosition] = useState(position);
 
-  // Handle mouse events for dragging
+  // Drag logic (mouse and touch)
   const handlePointerDown = useCallback(
     (event) => {
       if (!isDragMode) return;
       event.stopPropagation();
       setIsDragging(true);
-      onSelect(id);
       if (meshRef.current && camera && canvasRef && canvasRef.current) {
         const rect = canvasRef.current.getBoundingClientRect();
-        mouse.current.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-        mouse.current.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+        const clientX = event.touches ? event.touches[0].clientX : event.clientX;
+        const clientY = event.touches ? event.touches[0].clientY : event.clientY;
+        mouse.current.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+        mouse.current.y = -((clientY - rect.top) / rect.height) * 2 + 1;
         plane.current.set(new THREE.Vector3(0, 0, 1), -position[2]);
         raycaster.current.setFromCamera(mouse.current, camera);
         const intersect = new THREE.Vector3();
@@ -295,7 +294,7 @@ function DraggableGemstone({
         ]);
       }
     },
-    [isDragMode, id, onSelect, position, camera, canvasRef]
+    [isDragMode, position, camera, canvasRef]
   );
 
   const handlePointerMove = useCallback(
@@ -303,8 +302,10 @@ function DraggableGemstone({
       if (!isDragging || !isDragMode) return;
       if (!camera || !canvasRef || !canvasRef.current) return;
       const rect = canvasRef.current.getBoundingClientRect();
-      mouse.current.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-      mouse.current.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+      const clientX = event.touches ? event.touches[0].clientX : event.clientX;
+      const clientY = event.touches ? event.touches[0].clientY : event.clientY;
+      mouse.current.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.current.y = -((clientY - rect.top) / rect.height) * 2 + 1;
       plane.current.set(new THREE.Vector3(0, 0, 1), -position[2]);
       raycaster.current.setFromCamera(mouse.current, camera);
       const intersect = new THREE.Vector3();
@@ -314,10 +315,10 @@ function DraggableGemstone({
       newX = Math.max(-1, Math.min(1, newX));
       newY = Math.max(-1, Math.min(1, newY));
       const newPosition = [newX, newY, position[2]];
-      onPositionChange(id, newPosition);
+      onPositionChange(newPosition);
       setSmoothPosition(newPosition);
     },
-    [isDragging, isDragMode, position, id, onPositionChange, offset, camera, canvasRef]
+    [isDragging, isDragMode, position, onPositionChange, offset, camera, canvasRef]
   );
 
   const handlePointerUp = useCallback(() => {
@@ -325,19 +326,21 @@ function DraggableGemstone({
     setIsDragging(false);
   }, [isDragging]);
 
-  // Add global event listeners for mouse move and up
   useEffect(() => {
     if (isDragging) {
       document.addEventListener("pointermove", handlePointerMove);
       document.addEventListener("pointerup", handlePointerUp);
+      document.addEventListener("touchmove", handlePointerMove);
+      document.addEventListener("touchend", handlePointerUp);
       return () => {
         document.removeEventListener("pointermove", handlePointerMove);
         document.removeEventListener("pointerup", handlePointerUp);
+        document.removeEventListener("touchmove", handlePointerMove);
+        document.removeEventListener("touchend", handlePointerUp);
       };
     }
   }, [isDragging, handlePointerMove, handlePointerUp]);
 
-  // Lerp for smooth movement
   useEffect(() => {
     if (!isDragging) setSmoothPosition(position);
   }, [position, isDragging]);
@@ -358,6 +361,7 @@ function DraggableGemstone({
         material={material}
         geometry={geometry}
         onPointerDown={handlePointerDown}
+        onTouchStart={handlePointerDown}
         onPointerOver={() =>
           isDragMode && (document.body.style.cursor = "grab")
         }
@@ -369,9 +373,9 @@ function DraggableGemstone({
         <mesh scale={[0.8, 0.8, 0.8]}>
           <sphereGeometry args={[size * 0.3, 16, 16]} />
           <meshPhysicalMaterial
-            color={color}
-            metalness={0.9}
-            roughness={0.1}
+            color={matPreset.color}
+            metalness={matPreset.metalness}
+            roughness={matPreset.roughness}
             transparent
             opacity={0.2}
             envMapIntensity={2.0}
@@ -384,44 +388,40 @@ function DraggableGemstone({
 
 // Gemstones Group Component with drag functionality
 function GemstonesGroup({
-  jewelryType,
   showGemstones,
   gemstoneColor,
   gemstoneType,
   gemstoneOpacity,
-  gemstonePositions,
+  gemstonePosition,
+  gemstoneSize,
   gemstoneCut,
   onPositionChange,
   isDragMode,
-  selectedGemstone,
-  onGemstoneSelect,
+  gemstoneMaterialType,
   controlsRef,
   camera,
   canvasRef,
 }) {
+  if (!showGemstones) return null;
   return (
-    <group>
-      {gemstonePositions.map((gem, index) => (
-        <DraggableGemstone
-          key={index}
-          id={index}
-          position={gem.position}
-          size={gem.size}
-          color={gemstoneColor}
-          gemstoneType={gemstoneType}
-          visible={showGemstones && gem.visible}
-          opacity={gemstoneOpacity}
-          cut={gemstoneCut}
-          onPositionChange={onPositionChange}
-          isDragMode={isDragMode}
-          isSelected={selectedGemstone === index}
-          onSelect={onGemstoneSelect}
-          controlsRef={controlsRef}
-          camera={camera}
-          canvasRef={canvasRef}
-        />
-      ))}
-    </group>
+    <DraggableGemstone
+      id={0}
+      position={gemstonePosition}
+      size={gemstoneSize}
+      color={gemstoneColor}
+      gemstoneType={gemstoneType}
+      visible={true}
+      opacity={gemstoneOpacity}
+      cut={gemstoneCut}
+      onPositionChange={(_, pos) => onPositionChange(pos)}
+      isDragMode={isDragMode}
+      isSelected={true}
+      onSelect={() => {}}
+      controlsRef={controlsRef}
+      camera={camera}
+      canvasRef={canvasRef}
+      materialType={gemstoneMaterialType}
+    />
   );
 }
 
@@ -439,13 +439,12 @@ function Model({
   agingEffect,
   lightingPreset,
   gemstoneOpacity,
-  gemstonePositions,
+  gemstonePosition,
   jewelryType,
   gemstoneCut,
   onGemstonePositionChange,
   isDragMode,
-  selectedGemstone,
-  onGemstoneSelect,
+  gemstoneMaterialType,
   controlsRef,
   camera,
   canvasRef,
@@ -515,17 +514,16 @@ function Model({
         position={[0, -1, 0]}
       />
       <GemstonesGroup
-        jewelryType={jewelryType}
         showGemstones={showGemstones}
         gemstoneColor={gemstoneColor}
         gemstoneType={gemstoneType}
         gemstoneOpacity={gemstoneOpacity}
-        gemstonePositions={gemstonePositions}
+        gemstonePosition={gemstonePosition}
+        gemstoneSize={gemstoneSize}
         gemstoneCut={gemstoneCut}
         onPositionChange={onGemstonePositionChange}
         isDragMode={isDragMode}
-        selectedGemstone={selectedGemstone}
-        onGemstoneSelect={onGemstoneSelect}
+        gemstoneMaterialType={gemstoneMaterialType}
         controlsRef={controlsRef}
         camera={camera}
         canvasRef={canvasRef}
@@ -569,13 +567,12 @@ function Scene({
   agingEffect,
   lightingPreset,
   gemstoneOpacity,
-  gemstonePositions,
+  gemstonePosition,
   jewelryType,
   gemstoneCut,
   onGemstonePositionChange,
   isDragMode,
-  selectedGemstone,
-  onGemstoneSelect,
+  gemstoneMaterialType,
   canvasRef,
 }) {
   const controlsRef = useRef();
@@ -628,13 +625,12 @@ function Scene({
         agingEffect={agingEffect}
         lightingPreset={lightingPreset}
         gemstoneOpacity={gemstoneOpacity}
-        gemstonePositions={gemstonePositions}
+        gemstonePosition={gemstonePosition}
         jewelryType={jewelryType}
         gemstoneCut={gemstoneCut}
         onGemstonePositionChange={onGemstonePositionChange}
         isDragMode={isDragMode}
-        selectedGemstone={selectedGemstone}
-        onGemstoneSelect={onGemstoneSelect}
+        gemstoneMaterialType={gemstoneMaterialType}
         controlsRef={controlsRef}
         camera={camera}
         canvasRef={canvasRef}
@@ -666,27 +662,13 @@ export default function Home() {
 
   // Drag and drop states
   const [isDragMode, setIsDragMode] = useState(false);
-  const [selectedGemstone, setSelectedGemstone] = useState(null);
 
-  // Gemstone positions state - now dynamic and draggable
-  const [gemstonePositions, setGemstonePositions] = useState([
-    { position: [0, 0.1, 0], size: 0.12, visible: true },
-    { position: [-0.1, 0.05, 0], size: 0.09, visible: true },
-    { position: [0.1, 0.05, 0], size: 0.09, visible: true },
-    { position: [0, -0.05, 0], size: 0.07, visible: true },
-    { position: [-0.15, -0.1, 0], size: 0.06, visible: false },
-    { position: [0.15, -0.1, 0], size: 0.06, visible: false },
-  ]);
+  // Gemstone position state
+  const [gemstonePosition, setGemstonePosition] = useState([0, 0.1, 0]);
+  const [gemstoneSize, setGemstoneSize] = useState(0.09);
 
-  // Custom material state
-  const [customMaterial, setCustomMaterial] = useState({
-    color: "#ff0000",
-    metalness: 0.5,
-    roughness: 0.5,
-  });
-
-  // Gemstone size state
-  const [gemstoneSize, setGemstoneSize] = useState(0.09); // default size for all gems
+  // Gemstone material type state
+  const [gemstoneMaterialType, setGemstoneMaterialType] = useState("gold");
 
   // UI Panel states
   const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
@@ -726,52 +708,6 @@ export default function Home() {
     }
   }, [urlModelUrl, customerId]);
 
-  // Handle gemstone position changes
-  const handleGemstonePositionChange = useCallback(
-    (gemstoneId, newPosition) => {
-      setGemstonePositions((prev) =>
-        prev.map((gem, index) =>
-          index === gemstoneId ? { ...gem, position: newPosition } : gem
-        )
-      );
-    },
-    []
-  );
-
-  // Handle gemstone selection
-  const handleGemstoneSelect = useCallback((gemstoneId) => {
-    setSelectedGemstone(gemstoneId);
-  }, []);
-
-  // Toggle gemstone visibility
-  const toggleGemstone = useCallback((index) => {
-    setGemstonePositions((prev) =>
-      prev.map((gem, i) =>
-        i === index ? { ...gem, visible: !gem.visible } : gem
-      )
-    );
-  }, []);
-
-  // Add new gemstone
-  const addGemstone = useCallback(() => {
-    const newGemstone = {
-      position: [0, 0, 0],
-      size: 0.12,
-      visible: true,
-    };
-    setGemstonePositions((prev) => [...prev, newGemstone]);
-  }, []);
-
-  // Remove selected gemstone
-  const removeSelectedGemstone = useCallback(() => {
-    if (selectedGemstone !== null) {
-      setGemstonePositions((prev) =>
-        prev.filter((_, index) => index !== selectedGemstone)
-      );
-      setSelectedGemstone(null);
-    }
-  }, [selectedGemstone]);
-
   // Optimized handlers
   const handleScaleChange = useCallback((newScale) => {
     setScale(Math.max(0.1, Math.min(2, newScale)));
@@ -808,11 +744,10 @@ export default function Home() {
   }, [modelUrl, jewelryType, customerId]);
 
   const getActivePresetName = () => {
-    const activeCount = gemstonePositions.filter((gem) => gem.visible).length;
-    if (activeCount === 1) return "Solitaire";
-    if (activeCount === 3) return "Classic";
-    if (activeCount === 5) return "Luxury";
-    return `${activeCount} Stones`;
+    if (showGemstones) {
+      return "Solitaire";
+    }
+    return "No Gems";
   };
 
   // Download Image Handler
@@ -873,8 +808,9 @@ export default function Home() {
       agingEffect,
       lightingPreset,
       jewelryType,
-      gemstonePositions,
-      customMaterial,
+      gemstonePosition,
+      gemstoneSize,
+      gemstoneMaterialType,
       createdAt: serverTimestamp(),
     };
     try {
@@ -885,10 +821,13 @@ export default function Home() {
     }
   };
 
-  // Update all gemstone sizes when gemstoneSize changes
-  useEffect(() => {
-    setGemstonePositions((prev) => prev.map(gem => ({ ...gem, size: gemstoneSize })));
-  }, [gemstoneSize]);
+  // Update gemstone position
+  const handleGemstonePositionChange = useCallback(
+    (newPosition) => {
+      setGemstonePosition(newPosition);
+    },
+    []
+  );
 
   return (
     <div className="w-screen h-screen bg-white flex items-center justify-center p-2 md:p-4 relative overflow-hidden">
@@ -1092,181 +1031,100 @@ export default function Home() {
                 )}
               </div>
 
-              {/* Gemstone Management */}
-              <div className="flex gap-2">
-                <button
-                  onClick={addGemstone}
-                  className="flex-1 px-2 py-1.5 rounded text-xs font-medium transition-colors bg-blue-600/20 text-blue-300 hover:bg-blue-600/40 border border-blue-600/30"
+              {/* Gemstone Material Selector */}
+              <div>
+                <label className="text-xs text-gray-400 mb-1 block">
+                  Gemstone Material
+                </label>
+                <select
+                  value={gemstoneMaterialType}
+                  onChange={e => setGemstoneMaterialType(e.target.value)}
+                  className="w-full bg-gray-800/50 text-gray-200 border border-gray-600/30 rounded-lg px-2 py-1.5 text-sm"
                 >
-                  + Add Stone
-                </button>
-                <button
-                  onClick={removeSelectedGemstone}
-                  disabled={selectedGemstone === null}
-                  className="flex-1 px-2 py-1.5 rounded text-xs font-medium transition-colors bg-red-600/20 text-red-300 hover:bg-red-600/40 border border-red-600/30 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Remove
-                </button>
+                  <option value="gold">Gold</option>
+                  <option value="silver">Silver</option>
+                  <option value="platinum">Platinum</option>
+                  <option value="copper">Copper</option>
+                  <option value="titanium">Titanium</option>
+                </select>
               </div>
 
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-300">Show All</span>
-                <button
-                  onClick={() => setShowGemstones(!showGemstones)}
-                  className={`w-10 h-5 rounded-full transition-colors relative ${
-                    showGemstones ? "bg-blue-600" : "bg-gray-600"
-                  }`}
-                >
-                  <div
-                    className={`w-4 h-4 bg-white rounded-full transition-transform absolute top-0.5 ${
-                      showGemstones
-                        ? "transform translate-x-5"
-                        : "transform translate-x-0.5"
-                    }`}
-                  />
-                </button>
-              </div>
-
-              {showGemstones && (
-                <>
-                  {/* Gemstone Cut/Shape Selection */}
-                  <div>
-                    <label className="text-xs text-gray-400 mb-2 block">
-                      Gemstone Cut
-                    </label>
-                    <div className="grid grid-cols-4 gap-1">
-                      {GEMSTONE_CUTS.map((cut) => (
-                        <button
-                          key={cut.name}
-                          onClick={() => setGemstoneCut(cut.name)}
-                          className={`px-1 py-2 rounded text-xs font-medium transition-colors flex flex-col items-center gap-1 ${
-                            gemstoneCut === cut.name
-                              ? "bg-purple-600 text-white"
-                              : "bg-gray-700/50 text-gray-300 hover:bg-gray-600/50"
-                          }`}
-                        >
-                          <span className="text-lg">{cut.icon}</span>
-                          <span className="text-xs">{cut.name}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Individual Gemstone Controls */}
-                  <div>
-                    <label className="text-xs text-gray-400 mb-2 block">
-                      Individual Stones ({gemstonePositions.length})
-                    </label>
-                    <div className="grid grid-cols-3 gap-2 max-h-32 overflow-y-auto">
-                      {gemstonePositions.map((gem, index) => (
-                        <button
-                          key={index}
-                          onClick={() => toggleGemstone(index)}
-                          className={`px-2 py-2 rounded text-xs font-medium transition-colors flex items-center justify-center relative ${
-                            gem.visible
-                              ? "bg-blue-600 text-white"
-                              : "bg-gray-700/50 text-gray-300 hover:bg-gray-600/50"
-                          } ${
-                            selectedGemstone === index
-                              ? "ring-2 ring-green-400"
-                              : ""
-                          }`}
-                        >
-                          <div
-                            className="w-3 h-3 rounded-full border border-gray-400 mr-1"
-                            style={{
-                              backgroundColor: gem.visible
-                                ? gemstoneColor
-                                : "transparent",
-                            }}
-                          />
-                          {index + 1}
-                          {selectedGemstone === index && (
-                            <div className="absolute -top-1 -right-1 w-2 h-2 bg-green-400 rounded-full"></div>
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="text-xs text-gray-400 mb-1 block">
-                      Gemstone Type
-                    </label>
-                    <div className="grid grid-cols-2 gap-1">
-                      {GEMSTONE_PRESETS.map((gem) => (
-                        <button
-                          key={gem.name}
-                          onClick={() => {
-                            setGemstoneType(gem.name);
-                            setGemstoneColor(gem.color);
-                          }}
-                          className={`px-2 py-1 rounded text-xs font-medium transition-colors flex items-center gap-1 ${
-                            gemstoneType === gem.name
-                              ? "bg-blue-600 text-white"
-                              : "bg-gray-700/50 text-gray-300 hover:bg-gray-600/50"
-                          }`}
-                        >
-                          <div
-                            className="w-2 h-2 rounded-full border border-gray-400"
-                            style={{ backgroundColor: gem.color }}
-                          />
-                          {gem.name}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="text-xs text-gray-400 mb-1 block">
-                      Custom Color
-                    </label>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="color"
-                        value={gemstoneColor}
-                        onChange={(e) => setGemstoneColor(e.target.value)}
-                        className="w-6 h-6 rounded border border-gray-600 cursor-pointer"
+              <div>
+                <label className="text-xs text-gray-400 mb-1 block">
+                  Gemstone Type
+                </label>
+                <div className="grid grid-cols-2 gap-1">
+                  {GEMSTONE_PRESETS.map((gem) => (
+                    <button
+                      key={gem.name}
+                      onClick={() => {
+                        setGemstoneType(gem.name);
+                        setGemstoneColor(gem.color);
+                      }}
+                      className={`px-2 py-1 rounded text-xs font-medium transition-colors flex items-center gap-1 ${
+                        gemstoneType === gem.name
+                          ? "bg-blue-600 text-white"
+                          : "bg-gray-700/50 text-gray-300 hover:bg-gray-600/50"
+                      }`}
+                    >
+                      <div
+                        className="w-2 h-2 rounded-full border border-gray-400"
+                        style={{ backgroundColor: gem.color }}
                       />
-                      <span className="text-xs text-gray-400 font-mono">
-                        {gemstoneColor.toUpperCase()}
-                      </span>
-                    </div>
-                  </div>
+                      {gem.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-                  <div>
-                    <label className="text-xs text-gray-400 mb-1 block">
-                      Opacity: {gemstoneOpacity.toFixed(1)}
-                    </label>
-                    <input
-                      type="range"
-                      min="0.1"
-                      max="1"
-                      step="0.1"
-                      value={gemstoneOpacity}
-                      onChange={(e) =>
-                        setGemstoneOpacity(Number.parseFloat(e.target.value))
-                      }
-                      className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer"
-                    />
-                  </div>
+              <div>
+                <label className="text-xs text-gray-400 mb-1 block">
+                  Custom Color
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={gemstoneColor}
+                    onChange={(e) => setGemstoneColor(e.target.value)}
+                    className="w-6 h-6 rounded border border-gray-600 cursor-pointer"
+                  />
+                  <span className="text-xs text-gray-400 font-mono">
+                    {gemstoneColor.toUpperCase()}
+                  </span>
+                </div>
+              </div>
 
-                  <div>
-                    <label className="text-xs text-gray-400 mb-1 block">
-                      Gemstone Size: {gemstoneSize.toFixed(2)}
-                    </label>
-                    <input
-                      type="range"
-                      min="0.03"
-                      max="0.2"
-                      step="0.01"
-                      value={gemstoneSize}
-                      onChange={e => setGemstoneSize(Number(e.target.value))}
-                      className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer"
-                    />
-                  </div>
-                </>
-              )}
+              <div>
+                <label className="text-xs text-gray-400 mb-1 block">
+                  Opacity: {gemstoneOpacity.toFixed(1)}
+                </label>
+                <input
+                  type="range"
+                  min="0.1"
+                  max="1"
+                  step="0.1"
+                  value={gemstoneOpacity}
+                  onChange={(e) =>
+                    setGemstoneOpacity(Number.parseFloat(e.target.value))
+                  }
+                  className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs text-gray-400 mb-1 block">
+                  Gemstone Size: {gemstoneSize.toFixed(2)}
+                </label>
+                <input
+                  type="range"
+                  min="0.03"
+                  max="0.2"
+                  step="0.01"
+                  value={gemstoneSize}
+                  onChange={e => setGemstoneSize(Number(e.target.value))}
+                  className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer"
+                />
+              </div>
             </div>
           </div>
         )}
@@ -1548,8 +1406,7 @@ export default function Home() {
           >
             <p className="text-xs m-0 text-center">
               {jewelryType.charAt(0).toUpperCase() + jewelryType.slice(1)} •{" "}
-              {gemstonePositions.filter((gem) => gem.visible).length}
-              {gemstoneCut} stones {isDragMode ? "• DRAG MODE" : ""}
+              {showGemstones ? "1 Gem" : "No Gems"}
             </p>
           </div>
         </div>
@@ -1578,13 +1435,12 @@ export default function Home() {
               agingEffect={agingEffect}
               lightingPreset={lightingPreset}
               gemstoneOpacity={gemstoneOpacity}
-              gemstonePositions={gemstonePositions}
+              gemstonePosition={gemstonePosition}
               jewelryType={jewelryType}
               gemstoneCut={gemstoneCut}
               onGemstonePositionChange={handleGemstonePositionChange}
               isDragMode={isDragMode}
-              selectedGemstone={selectedGemstone}
-              onGemstoneSelect={handleGemstoneSelect}
+              gemstoneMaterialType={gemstoneMaterialType}
               canvasRef={canvasRef}
             />
           </Canvas>
@@ -1607,7 +1463,7 @@ export default function Home() {
             <span>•</span>
             <span>
               {showGemstones
-                ? `${getActivePresetName()} ${gemstoneCut} ${gemstoneType}`
+                ? "1 Gem"
                 : "No Gems"}
             </span>
             {isDragMode && (
