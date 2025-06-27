@@ -650,7 +650,7 @@ export default function Home() {
   const [sellerId, setSellerId] = useState(null);
 
   // State Management
-  const [color, setColor] = useState("#ff0000");
+  const [color, setColor] = useState("#ffffff");
   const [scale, setScale] = useState(0.35); // Reduced default size
   const [materialType, setMaterialType] = useState("gold");
   const [texture, setTexture] = useState("Smooth");
@@ -670,12 +670,12 @@ export default function Home() {
 
   // Gemstone positions state - now dynamic and draggable
   const [gemstonePositions, setGemstonePositions] = useState([
-    { position: [0, 0.1, 0], size: 0.2, visible: true },
-    { position: [-0.1, 0.05, 0], size: 0.15, visible: true },
-    { position: [0.1, 0.05, 0], size: 0.15, visible: true },
-    { position: [0, -0.05, 0], size: 0.12, visible: true },
-    { position: [-0.15, -0.1, 0], size: 0.1, visible: false },
-    { position: [0.15, -0.1, 0], size: 0.1, visible: false },
+    { position: [0, 0.1, 0], size: 0.12, visible: true },
+    { position: [-0.1, 0.05, 0], size: 0.09, visible: true },
+    { position: [0.1, 0.05, 0], size: 0.09, visible: true },
+    { position: [0, -0.05, 0], size: 0.07, visible: true },
+    { position: [-0.15, -0.1, 0], size: 0.06, visible: false },
+    { position: [0.15, -0.1, 0], size: 0.06, visible: false },
   ]);
 
   // Custom material state
@@ -684,6 +684,9 @@ export default function Home() {
     metalness: 0.5,
     roughness: 0.5,
   });
+
+  // Gemstone size state
+  const [gemstoneSize, setGemstoneSize] = useState(0.09); // default size for all gems
 
   // UI Panel states
   const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
@@ -881,6 +884,11 @@ export default function Home() {
       alert("Failed to place order: " + error.message);
     }
   };
+
+  // Update all gemstone sizes when gemstoneSize changes
+  useEffect(() => {
+    setGemstonePositions((prev) => prev.map(gem => ({ ...gem, size: gemstoneSize })));
+  }, [gemstoneSize]);
 
   return (
     <div className="w-screen h-screen bg-white flex items-center justify-center p-2 md:p-4 relative overflow-hidden">
@@ -1239,6 +1247,21 @@ export default function Home() {
                       onChange={(e) =>
                         setGemstoneOpacity(Number.parseFloat(e.target.value))
                       }
+                      className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs text-gray-400 mb-1 block">
+                      Gemstone Size: {gemstoneSize.toFixed(2)}
+                    </label>
+                    <input
+                      type="range"
+                      min="0.03"
+                      max="0.2"
+                      step="0.01"
+                      value={gemstoneSize}
+                      onChange={e => setGemstoneSize(Number(e.target.value))}
                       className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer"
                     />
                   </div>
