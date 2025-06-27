@@ -232,24 +232,31 @@ function DraggableGemstone({
   const meshRef = useRef();
   const [isDragging, setIsDragging] = useState(false);
   const [offset, setOffset] = useState([0, 0, 0]);
+  const [smoothPosition, setSmoothPosition] = useState(position);
+  const [draggedPosition, setDraggedPosition] = useState(null);
 
   const gemstoneData =
     GEMSTONE_PRESETS.find((g) => g.name === gemstoneType) ||
     GEMSTONE_PRESETS[0];
   const cutData = GEMSTONE_CUTS.find((c) => c.name === cut) || GEMSTONE_CUTS[0];
 
+  const safePosition = Array.isArray(position) && position.length === 3 && position.every(Number.isFinite)
+    ? position
+    : [0, 0.1, 0];
+  const safeSize = Number.isFinite(size) && size > 0 ? size : 0.09;
+
   const geometry = useMemo(
-    () => createGemstoneGeometry(cutData.shape, size),
-    [cutData.shape, size]
+    () => createGemstoneGeometry(cutData.shape, safeSize),
+    [cutData.shape, safeSize]
   );
 
   // Use materialType for gold/silver look
   const matPreset = MATERIAL_PRESETS[materialType] || MATERIAL_PRESETS.gold;
   const material = useMemo(() => {
     return new THREE.MeshPhysicalMaterial({
-      color: new THREE.Color(matPreset.color),
-      metalness: matPreset.metalness,
-      roughness: matPreset.roughness,
+      color: new THREE.Color(color),
+      metalness: 0.0,
+      roughness: 0.0,
       transmission: 0.98,
       transparent: true,
       opacity: opacity * gemstoneData.opacity * (isSelected ? 1.2 : 1),
@@ -264,13 +271,12 @@ function DraggableGemstone({
       iridescence: 0.3,
       iridescenceIOR: 1.3,
     });
-  }, [matPreset, opacity, gemstoneData, isSelected]);
+  }, [color, opacity, gemstoneData, isSelected]);
 
   // Raycaster and plane for smooth drag (support touch and mouse)
   const raycaster = useRef(new THREE.Raycaster());
   const plane = useRef(new THREE.Plane(new THREE.Vector3(0, 0, 1), 0));
   const mouse = useRef(new THREE.Vector2());
-  const [smoothPosition, setSmoothPosition] = useState(position);
 
   // Drag logic (mouse and touch)
   const handlePointerDown = useCallback(
@@ -278,24 +284,25 @@ function DraggableGemstone({
       if (!isDragMode) return;
       event.stopPropagation();
       setIsDragging(true);
+      setDraggedPosition(safePosition); // start drag from current position
       if (meshRef.current && camera && canvasRef && canvasRef.current) {
         const rect = canvasRef.current.getBoundingClientRect();
         const clientX = event.touches ? event.touches[0].clientX : event.clientX;
         const clientY = event.touches ? event.touches[0].clientY : event.clientY;
         mouse.current.x = ((clientX - rect.left) / rect.width) * 2 - 1;
         mouse.current.y = -((clientY - rect.top) / rect.height) * 2 + 1;
-        plane.current.set(new THREE.Vector3(0, 0, 1), -position[2]);
+        plane.current.set(new THREE.Vector3(0, 0, 1), -safePosition[2]);
         raycaster.current.setFromCamera(mouse.current, camera);
         const intersect = new THREE.Vector3();
         raycaster.current.ray.intersectPlane(plane.current, intersect);
         setOffset([
-          position[0] - intersect.x,
-          position[1] - intersect.y,
+          safePosition[0] - intersect.x,
+          safePosition[1] - intersect.y,
           0,
         ]);
       }
     },
-    [isDragMode, position, camera, canvasRef]
+    [isDragMode, safePosition, camera, canvasRef]
   );
 
   const handlePointerMove = useCallback(
@@ -307,7 +314,7 @@ function DraggableGemstone({
       const clientY = event.touches ? event.touches[0].clientY : event.clientY;
       mouse.current.x = ((clientX - rect.left) / rect.width) * 2 - 1;
       mouse.current.y = -((clientY - rect.top) / rect.height) * 2 + 1;
-      plane.current.set(new THREE.Vector3(0, 0, 1), -position[2]);
+      plane.current.set(new THREE.Vector3(0, 0, 1), -safePosition[2]);
       raycaster.current.setFromCamera(mouse.current, camera);
       const intersect = new THREE.Vector3();
       raycaster.current.ray.intersectPlane(plane.current, intersect);
@@ -315,17 +322,21 @@ function DraggableGemstone({
       let newY = intersect.y + offset[1];
       newX = Math.max(-1, Math.min(1, newX));
       newY = Math.max(-1, Math.min(1, newY));
-      const newPosition = [newX, newY, position[2]];
-      onPositionChange(newPosition);
+      const newPosition = [newX, newY, safePosition[2]];
       setSmoothPosition(newPosition);
+      setDraggedPosition(newPosition);
     },
-    [isDragging, isDragMode, position, onPositionChange, offset, camera, canvasRef]
+    [isDragging, isDragMode, safePosition, offset, camera, canvasRef]
   );
 
   const handlePointerUp = useCallback(() => {
     if (!isDragging) return;
     setIsDragging(false);
-  }, [isDragging]);
+    if (draggedPosition) {
+      onPositionChange(draggedPosition);
+    }
+    setDraggedPosition(null);
+  }, [isDragging, draggedPosition, onPositionChange]);
 
   useEffect(() => {
     if (isDragging) {
@@ -342,9 +353,17 @@ function DraggableGemstone({
     }
   }, [isDragging, handlePointerMove, handlePointerUp]);
 
+  // Only update smoothPosition when prop changes and not while dragging
   useEffect(() => {
-    if (!isDragging) setSmoothPosition(position);
-  }, [position, isDragging]);
+    if (!isDragging &&
+        (!Array.isArray(smoothPosition) ||
+          smoothPosition[0] !== safePosition[0] ||
+          smoothPosition[1] !== safePosition[1] ||
+          smoothPosition[2] !== safePosition[2])) {
+      setSmoothPosition(safePosition);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [safePosition[0], safePosition[1], safePosition[2], isDragging]);
 
   useEffect(() => {
     return () => {
@@ -358,7 +377,7 @@ function DraggableGemstone({
     <group>
       <mesh
         ref={meshRef}
-        position={smoothPosition}
+        position={isDragging && draggedPosition ? draggedPosition : smoothPosition}
         material={material}
         geometry={geometry}
         onPointerDown={handlePointerDown}
@@ -372,9 +391,9 @@ function DraggableGemstone({
       >
         {/* Inner reflection geometry for more sparkle */}
         <mesh scale={[0.8, 0.8, 0.8]}>
-          <sphereGeometry args={[size * 0.3, 16, 16]} />
+          <sphereGeometry args={[safeSize * 0.3, 16, 16]} />
           <meshPhysicalMaterial
-            color={matPreset.color}
+            color={color}
             metalness={matPreset.metalness}
             roughness={matPreset.roughness}
             transparent
@@ -809,13 +828,21 @@ export default function Home() {
   // Update gemstone position
   const handleGemstonePositionChange = useCallback(
     (newPosition) => {
-      setGemstonePosition(newPosition);
+      setGemstonePosition((prev) =>
+        Array.isArray(newPosition) &&
+        (prev[0] !== newPosition[0] || prev[1] !== newPosition[1] || prev[2] !== newPosition[2])
+          ? newPosition
+          : prev
+      );
     },
     []
   );
 
-  // In Home, ensure gemstoneSize is always set to a valid value when adding a gemstone
+  // In Home, define safe defaults
   const safeGemstoneSize = 0.09;
+  const safeGemstoneCut = 'Round';
+  const safeGemstoneMaterialType = 'gold';
+  const safeGemstonePosition = [0, 0.1, 0];
 
   return (
     <div className="w-screen h-screen bg-white flex items-center justify-center p-2 md:p-4 relative overflow-hidden">
@@ -996,7 +1023,13 @@ export default function Home() {
               {/* Add/Remove Gemstone Button */}
               {!showGemstones ? (
                 <button
-                  onClick={() => { setShowGemstones(true); setGemstoneSize(safeGemstoneSize); }}
+                  onClick={() => {
+                    setShowGemstones(true);
+                    setGemstoneSize(safeGemstoneSize);
+                    setGemstoneCut(safeGemstoneCut);
+                    setGemstoneMaterialType(safeGemstoneMaterialType);
+                    setGemstonePosition(safeGemstonePosition);
+                  }}
                   className="w-full px-2 py-2 rounded text-xs font-medium transition-colors bg-blue-600/20 text-blue-300 hover:bg-blue-600/40 border border-blue-600/30"
                 >
                   + Add Gemstone
@@ -1038,24 +1071,30 @@ export default function Home() {
                   )}
                 </div>
 
-                {/* Gemstone Material Selector */}
+                {/* Gemstone Cut/Shape Selector */}
                 <div>
-                  <label className="text-xs text-gray-400 mb-1 block">
-                    Gemstone Material
+                  <label className="text-xs text-gray-400 mb-2 block">
+                    Gemstone Shape
                   </label>
-                  <select
-                    value={gemstoneMaterialType}
-                    onChange={e => setGemstoneMaterialType(e.target.value)}
-                    className="w-full bg-gray-800/50 text-gray-200 border border-gray-600/30 rounded-lg px-2 py-1.5 text-sm"
-                  >
-                    <option value="gold">Gold</option>
-                    <option value="silver">Silver</option>
-                    <option value="platinum">Platinum</option>
-                    <option value="copper">Copper</option>
-                    <option value="titanium">Titanium</option>
-                  </select>
+                  <div className="grid grid-cols-4 gap-1">
+                    {GEMSTONE_CUTS.map((cut) => (
+                      <button
+                        key={cut.name}
+                        onClick={() => setGemstoneCut(cut.name)}
+                        className={`px-1 py-2 rounded text-xs font-medium transition-colors flex flex-col items-center gap-1 ${
+                          gemstoneCut === cut.name
+                            ? "bg-purple-600 text-white"
+                            : "bg-gray-700/50 text-gray-300 hover:bg-gray-600/50"
+                        }`}
+                      >
+                        <span className="text-lg">{cut.icon}</span>
+                        <span className="text-xs">{cut.name}</span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
+                {/* Gemstone Type Selector */}
                 <div>
                   <label className="text-xs text-gray-400 mb-1 block">
                     Gemstone Type
@@ -1084,6 +1123,7 @@ export default function Home() {
                   </div>
                 </div>
 
+                {/* Gemstone Size Slider */}
                 <div>
                   <label className="text-xs text-gray-400 mb-1 block">
                     Gemstone Size: {gemstoneSize.toFixed(2)}
@@ -1094,10 +1134,7 @@ export default function Home() {
                     max="0.2"
                     step="0.01"
                     value={gemstoneSize}
-                    onChange={e => {
-                      const val = Number(e.target.value);
-                      setGemstoneSize(Number.isFinite(val) && val > 0 ? val : safeGemstoneSize);
-                    }}
+                    onChange={e => setGemstoneSize(Number(e.target.value))}
                     className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer"
                   />
                 </div>
@@ -1341,32 +1378,9 @@ export default function Home() {
                       onClick={() => setAgingEffect(effect.name)}
                       className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
                         agingEffect === effect.name
-                          ? "bg-purple-600 text-white"
-                          : "bg-gray-700/50 text-gray-300 hover:bg-gray-600/50"
                       }`}
                     >
                       {effect.name}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label className="text-xs text-gray-400 mb-1 block">
-                  Lighting
-                </label>
-                <div className="grid grid-cols-2 gap-1">
-                  {LIGHTING_PRESETS.map((preset) => (
-                    <button
-                      key={preset.name}
-                      onClick={() => setLightingPreset(preset.name)}
-                      className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
-                        lightingPreset === preset.name
-                          ? "bg-yellow-600 text-white"
-                          : "bg-gray-700/50 text-gray-300 hover:bg-gray-600/50"
-                      }`}
-                    >
-                      {preset.name}
                     </button>
                   ))}
                 </div>
@@ -1375,30 +1389,12 @@ export default function Home() {
           </div>
         )}
 
-        {/* Model URL Display for Debugging */}
-        <div className="absolute top-2 left-1/2 transform -translate-x-1/2 z-20 hidden md:block">
-          <div
-            className={`backdrop-blur-md p-2 rounded-lg shadow-lg max-w-md border ${
-              materialType === "custom"
-                ? "bg-gray-100/90 border-gray-300 text-gray-800"
-                : "bg-gray-900/80 border-gray-600/50 text-gray-300"
-            }`}
-          >
-            <p className="text-xs m-0 text-center">
-              {jewelryType.charAt(0).toUpperCase() + jewelryType.slice(1)} •{" "}
-              {showGemstones ? "1 Gem" : "No Gems"}
-            </p>
-          </div>
-        </div>
-
         {/* 3D Canvas with enhanced border */}
         <div className="w-full h-full border-4 border-gray-600/30 rounded-2xl md:rounded-3xl overflow-hidden">
           <Canvas
             ref={canvasRef}
             className="w-full h-full"
-            style={{
-              background: "#fff",
-            }}
+            style={{ background: "#fff" }}
             camera={{ position: [0, 1, 5], fov: 50 }}
             gl={{ preserveDrawingBuffer: true }}
           >
@@ -1411,6 +1407,8 @@ export default function Home() {
               showGemstones={showGemstones}
               gemstoneColor={gemstoneColor}
               gemstoneType={gemstoneType}
+              agingEffect={agingEffect}
+              lightingPreset={lightingPreset}
               gemstoneOpacity={gemstoneOpacity}
               gemstonePosition={gemstonePosition}
               gemstoneSize={gemstoneSize}
@@ -1420,41 +1418,8 @@ export default function Home() {
               isDragMode={isDragMode}
               gemstoneMaterialType={gemstoneMaterialType}
               canvasRef={canvasRef}
-              lightingPreset={lightingPreset}
-              agingEffect={agingEffect}
             />
           </Canvas>
-        </div>
-
-        {/* Enhanced Mobile-friendly Status Bar */}
-        <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 z-20">
-          <div
-            className={`backdrop-blur-md px-3 py-1.5 md:px-4 md:py-2 rounded-full text-xs border flex items-center gap-2 md:gap-4 ${
-              materialType === "custom"
-                ? "bg-gray-100/90 border-gray-300 text-gray-800"
-                : "bg-gray-900/80 border-gray-600/50 text-gray-200"
-            }`}
-          >
-            <span className="hidden md:inline">
-              {materialType.charAt(0).toUpperCase() + materialType.slice(1)}
-            </span>
-            <span className="hidden md:inline">•</span>
-            <span>{Math.round(scale * 100)}%</span>
-            <span>•</span>
-            <span>
-              {showGemstones
-                ? "1 Gem"
-                : "No Gems"}
-            </span>
-            {isDragMode && (
-              <>
-                <span>•</span>
-                <span className="text-green-400">DRAG</span>
-              </>
-            )}
-            <span>•</span>
-            <span className="hidden sm:inline">{agingEffect}</span>
-          </div>
         </div>
       </div>
     </div>
