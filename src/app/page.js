@@ -209,32 +209,6 @@ function createGemstoneGeometry(shape, size) {
   }
 }
 
-// OrbitControls wrapper component to manage controls state
-function ControlsManager({ isDragMode, children }) {
-  const controlsRef = useRef();
-
-  useEffect(() => {
-    if (controlsRef.current) {
-      controlsRef.current.enabled = !isDragMode;
-    }
-  }, [isDragMode]);
-
-  return (
-    <>
-      <OrbitControls
-        ref={controlsRef}
-        enablePan={true}
-        enableZoom={true}
-        enableRotate={!isDragMode}
-        minDistance={2}
-        maxDistance={10}
-        maxPolarAngle={Math.PI / 2}
-      />
-      {children}
-    </>
-  );
-}
-
 // Draggable Gemstone component
 function DraggableGemstone({
   id,
@@ -320,11 +294,8 @@ function DraggableGemstone({
           0,
         ]);
       }
-      if (controlsRef && controlsRef.current) {
-        controlsRef.current.enabled = false;
-      }
     },
-    [isDragMode, id, onSelect, controlsRef, position, camera, canvasRef]
+    [isDragMode, id, onSelect, position, camera, canvasRef]
   );
 
   const handlePointerMove = useCallback(
@@ -352,11 +323,7 @@ function DraggableGemstone({
   const handlePointerUp = useCallback(() => {
     if (!isDragging) return;
     setIsDragging(false);
-    // Re-enable orbit controls
-    if (controlsRef && controlsRef.current) {
-      controlsRef.current.enabled = !isDragMode;
-    }
-  }, [isDragging, isDragMode, controlsRef]);
+  }, [isDragging]);
 
   // Add global event listeners for mouse move and up
   useEffect(() => {
@@ -1570,10 +1537,7 @@ export default function Home() {
             ref={canvasRef}
             className="w-full h-full"
             style={{
-              background:
-                materialType === "custom"
-                  ? "linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)"
-                  : "radial-gradient(circle at center, rgba(30,30,30,0.8) 0%, rgba(0,0,0,0.9) 100%)",
+              background: "#fff",
             }}
             camera={{ position: [0, 1, 5], fov: 50 }}
             gl={{ preserveDrawingBuffer: true }}
