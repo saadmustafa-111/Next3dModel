@@ -435,11 +435,11 @@ function Model({
   showGemstones,
   gemstoneColor,
   gemstoneType,
-  customMaterial,
   agingEffect,
   lightingPreset,
   gemstoneOpacity,
   gemstonePosition,
+  gemstoneSize,
   jewelryType,
   gemstoneCut,
   onGemstonePositionChange,
@@ -455,13 +455,6 @@ function Model({
 
   // Memoize material properties for performance
   const materialProps = useMemo(() => {
-    if (materialType === "custom") {
-      return {
-        color: customMaterial.color,
-        metalness: customMaterial.metalness,
-        roughness: customMaterial.roughness,
-      };
-    }
     const preset = MATERIAL_PRESETS[materialType] || MATERIAL_PRESETS.gold;
     const textureProps =
       TEXTURE_OPTIONS.find((t) => t.name === texture) || TEXTURE_OPTIONS[0];
@@ -473,7 +466,7 @@ function Model({
       metalness: textureProps.metalness * aging.metalness,
       roughness: Math.max(textureProps.roughness, aging.roughness),
     };
-  }, [materialType, texture, color, customMaterial, agingEffect]);
+  }, [materialType, texture, color, agingEffect]);
 
   // Optimized material update function
   const updateMaterials = useCallback(
@@ -563,9 +556,6 @@ function Scene({
   showGemstones,
   gemstoneColor,
   gemstoneType,
-  customMaterial,
-  agingEffect,
-  lightingPreset,
   gemstoneOpacity,
   gemstonePosition,
   jewelryType,
@@ -621,7 +611,6 @@ function Scene({
         showGemstones={showGemstones}
         gemstoneColor={gemstoneColor}
         gemstoneType={gemstoneType}
-        customMaterial={customMaterial}
         agingEffect={agingEffect}
         lightingPreset={lightingPreset}
         gemstoneOpacity={gemstoneOpacity}
@@ -720,13 +709,6 @@ export default function Home() {
       setColor(newColor);
       console.log("Material changed to:", newMaterialType, "Color:", newColor);
     }
-  }, []);
-
-  const handleCustomMaterialChange = useCallback((property, value) => {
-    setCustomMaterial((prev) => ({
-      ...prev,
-      [property]: value,
-    }));
   }, []);
 
   // Close all panels function
@@ -1146,7 +1128,10 @@ export default function Home() {
                 color={materialType === "custom" ? customMaterial.color : color}
                 onChange={(newColor) => {
                   if (materialType === "custom") {
-                    handleCustomMaterialChange("color", newColor);
+                    handleCustomMaterialChange(
+                      "color",
+                      newColor
+                    );
                   } else {
                     setColor(newColor);
                     console.log("Color picker changed to:", newColor);
@@ -1431,9 +1416,6 @@ export default function Home() {
               showGemstones={showGemstones}
               gemstoneColor={gemstoneColor}
               gemstoneType={gemstoneType}
-              customMaterial={customMaterial}
-              agingEffect={agingEffect}
-              lightingPreset={lightingPreset}
               gemstoneOpacity={gemstoneOpacity}
               gemstonePosition={gemstonePosition}
               jewelryType={jewelryType}
