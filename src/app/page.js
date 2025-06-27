@@ -131,81 +131,82 @@ function getUrlParameter(name) {
 
 // Create different gemstone shapes
 function createGemstoneGeometry(shape, size) {
+  const safeSize = Number.isFinite(size) && size > 0 ? size : 0.09;
   switch (shape) {
     case "sphere":
-      return new THREE.SphereGeometry(size, 32, 32);
+      return new THREE.SphereGeometry(safeSize, 32, 32);
     case "box":
-      return new THREE.BoxGeometry(size * 1.2, size * 1.2, size * 0.8);
+      return new THREE.BoxGeometry(safeSize * 1.2, safeSize * 1.2, safeSize * 0.8);
     case "emerald":
-      return new THREE.BoxGeometry(size * 1.4, size * 1.8, size * 0.6);
+      return new THREE.BoxGeometry(safeSize * 1.4, safeSize * 1.8, safeSize * 0.6);
     case "triangle":
-      return new THREE.ConeGeometry(size * 1.2, size * 1.5, 3);
+      return new THREE.ConeGeometry(safeSize * 1.2, safeSize * 1.5, 3);
     case "marquise":
       const marquiseShape = new THREE.Shape();
-      marquiseShape.moveTo(0, size * 1.5);
-      marquiseShape.quadraticCurveTo(size * 0.8, size * 0.8, 0, 0);
-      marquiseShape.quadraticCurveTo(-size * 0.8, size * 0.8, 0, size * 1.5);
+      marquiseShape.moveTo(0, safeSize * 1.5);
+      marquiseShape.quadraticCurveTo(safeSize * 0.8, safeSize * 0.8, 0, 0);
+      marquiseShape.quadraticCurveTo(-safeSize * 0.8, safeSize * 0.8, 0, safeSize * 1.5);
       return new THREE.ExtrudeGeometry(marquiseShape, {
-        depth: size * 0.5,
+        depth: safeSize * 0.5,
         bevelEnabled: true,
         bevelSize: 0.02,
       });
     case "heart":
       const heartShape = new THREE.Shape();
-      heartShape.moveTo(0, -size * 0.5);
+      heartShape.moveTo(0, -safeSize * 0.5);
       heartShape.bezierCurveTo(
         0,
-        -size * 0.8,
-        -size * 0.6,
-        -size * 1.2,
-        -size * 0.6,
-        -size * 0.8
+        -safeSize * 0.8,
+        -safeSize * 0.6,
+        -safeSize * 1.2,
+        -safeSize * 0.6,
+        -safeSize * 0.8
       );
       heartShape.bezierCurveTo(
-        -size * 0.6,
-        -size * 0.4,
-        -size * 0.3,
-        -size * 0.2,
+        -safeSize * 0.6,
+        -safeSize * 0.4,
+        -safeSize * 0.3,
+        -safeSize * 0.2,
         0,
-        size * 0.2
+        safeSize * 0.2
       );
       heartShape.bezierCurveTo(
-        size * 0.3,
-        -size * 0.2,
-        size * 0.6,
-        -size * 0.4,
-        size * 0.6,
-        -size * 0.8
+        safeSize * 0.3,
+        -safeSize * 0.2,
+        safeSize * 0.6,
+        -safeSize * 0.4,
+        safeSize * 0.6,
+        -safeSize * 0.8
       );
       heartShape.bezierCurveTo(
-        size * 0.6,
-        -size * 1.2,
+        safeSize * 0.6,
+        -safeSize * 1.2,
         0,
-        -size * 0.8,
+        -safeSize * 0.8,
         0,
-        -size * 0.5
+        -safeSize * 0.5
       );
       return new THREE.ExtrudeGeometry(heartShape, {
-        depth: size * 0.4,
+        depth: safeSize * 0.4,
         bevelEnabled: true,
         bevelSize: 0.02,
       });
     case "pear":
       const pearShape = new THREE.Shape();
-      pearShape.moveTo(0, size * 1.5);
-      pearShape.quadraticCurveTo(size * 0.8, size * 0.5, size * 0.6, 0);
-      pearShape.quadraticCurveTo(size * 0.6, -size * 0.8, 0, -size * 0.8);
-      pearShape.quadraticCurveTo(-size * 0.6, -size * 0.8, -size * 0.6, 0);
-      pearShape.quadraticCurveTo(-size * 0.8, size * 0.5, 0, size * 1.5);
+      pearShape.moveTo(0, safeSize * 1.5);
+      pearShape.quadraticCurveTo(safeSize * 0.8, safeSize * 0.5, safeSize * 0.6, 0);
+      pearShape.quadraticCurveTo(safeSize * 0.6, -safeSize * 0.8, 0, -safeSize * 0.8);
+      pearShape.quadraticCurveTo(-safeSize * 0.6, -safeSize * 0.8, -safeSize * 0.6, 0);
+      pearShape.quadraticCurveTo(-safeSize * 0.8, safeSize * 0.5, 0, safeSize * 1.5);
       return new THREE.ExtrudeGeometry(pearShape, {
-        depth: size * 0.5,
+        depth: safeSize * 0.5,
         bevelEnabled: true,
         bevelSize: 0.02,
       });
     case "oval":
-      return new THREE.SphereGeometry(size, 32, 16, 0, Math.PI * 2, 0, Math.PI);
+      return new THREE.SphereGeometry(safeSize, 32, 16, 0, Math.PI * 2, 0, Math.PI);
     default:
-      return new THREE.OctahedronGeometry(size, 2);
+      return new THREE.OctahedronGeometry(safeSize, 2);
   }
 }
 
@@ -388,6 +389,7 @@ function DraggableGemstone({
 
 // Gemstones Group Component with drag functionality
 function GemstonesGroup({
+  showGemstones,
   gemstoneColor,
   gemstoneType,
   gemstoneOpacity,
@@ -401,6 +403,7 @@ function GemstonesGroup({
   camera,
   canvasRef,
 }) {
+  if (!showGemstones) return null;
   return (
     <DraggableGemstone
       id={0}
@@ -505,6 +508,7 @@ function Model({
         position={[0, -1, 0]}
       />
       <GemstonesGroup
+        showGemstones={showGemstones}
         gemstoneColor={gemstoneColor}
         gemstoneType={gemstoneType}
         gemstoneOpacity={gemstoneOpacity}
@@ -638,7 +642,7 @@ export default function Home() {
   const [scale, setScale] = useState(0.35); // Reduced default size
   const [materialType, setMaterialType] = useState("gold");
   const [texture, setTexture] = useState("Smooth");
-  const [showGemstones, setShowGemstones] = useState(true);
+  const [showGemstones, setShowGemstones] = useState(false);
   const [gemstoneColor, setGemstoneColor] = useState("#ffffff");
   const [gemstoneType, setGemstoneType] = useState("Diamond");
   const [gemstoneCut, setGemstoneCut] = useState("Round");
@@ -809,6 +813,9 @@ export default function Home() {
     },
     []
   );
+
+  // In Home, ensure gemstoneSize is always set to a valid value when adding a gemstone
+  const safeGemstoneSize = 0.09;
 
   return (
     <div className="w-screen h-screen bg-white flex items-center justify-center p-2 md:p-4 relative overflow-hidden">
@@ -986,126 +993,115 @@ export default function Home() {
             </div>
 
             <div className="space-y-3">
-              {/* Drag Mode Controls */}
-              <div className="bg-gray-800/50 p-2 rounded-lg">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-gray-300">Drag Mode</span>
-                  <button
-                    onClick={() => setIsDragMode(!isDragMode)}
-                    className={`w-10 h-5 rounded-full transition-colors relative ${
-                      isDragMode ? "bg-green-600" : "bg-gray-600"
-                    }`}
-                  >
-                    <div
-                      className={`w-4 h-4 bg-white rounded-full transition-transform absolute top-0.5 ${
-                        isDragMode
-                          ? "transform translate-x-5"
-                          : "transform translate-x-0.5"
-                      }`}
-                    />
-                  </button>
-                </div>
-                {isDragMode && (
-                  <div className="text-xs text-green-300 bg-green-900/30 p-2 rounded">
-                    💡 Click and drag gemstones to reposition them!
-                  </div>
-                )}
-              </div>
-
-              {/* Gemstone Material Selector */}
-              <div>
-                <label className="text-xs text-gray-400 mb-1 block">
-                  Gemstone Material
-                </label>
-                <select
-                  value={gemstoneMaterialType}
-                  onChange={e => setGemstoneMaterialType(e.target.value)}
-                  className="w-full bg-gray-800/50 text-gray-200 border border-gray-600/30 rounded-lg px-2 py-1.5 text-sm"
+              {/* Add/Remove Gemstone Button */}
+              {!showGemstones ? (
+                <button
+                  onClick={() => { setShowGemstones(true); setGemstoneSize(safeGemstoneSize); }}
+                  className="w-full px-2 py-2 rounded text-xs font-medium transition-colors bg-blue-600/20 text-blue-300 hover:bg-blue-600/40 border border-blue-600/30"
                 >
-                  <option value="gold">Gold</option>
-                  <option value="silver">Silver</option>
-                  <option value="platinum">Platinum</option>
-                  <option value="copper">Copper</option>
-                  <option value="titanium">Titanium</option>
-                </select>
-              </div>
+                  + Add Gemstone
+                </button>
+              ) : (
+                <button
+                  onClick={() => setShowGemstones(false)}
+                  className="w-full px-2 py-2 rounded text-xs font-medium transition-colors bg-red-600/20 text-red-300 hover:bg-red-600/40 border border-red-600/30"
+                >
+                  Remove Gemstone
+                </button>
+              )}
 
-              <div>
-                <label className="text-xs text-gray-400 mb-1 block">
-                  Gemstone Type
-                </label>
-                <div className="grid grid-cols-2 gap-1">
-                  {GEMSTONE_PRESETS.map((gem) => (
+              {/* Only show controls if gemstone is present */}
+              {showGemstones && <>
+                {/* Drag Mode Controls */}
+                <div className="bg-gray-800/50 p-2 rounded-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm text-gray-300">Drag Mode</span>
                     <button
-                      key={gem.name}
-                      onClick={() => {
-                        setGemstoneType(gem.name);
-                        setGemstoneColor(gem.color);
-                      }}
-                      className={`px-2 py-1 rounded text-xs font-medium transition-colors flex items-center gap-1 ${
-                        gemstoneType === gem.name
-                          ? "bg-blue-600 text-white"
-                          : "bg-gray-700/50 text-gray-300 hover:bg-gray-600/50"
+                      onClick={() => setIsDragMode(!isDragMode)}
+                      className={`w-10 h-5 rounded-full transition-colors relative ${
+                        isDragMode ? "bg-green-600" : "bg-gray-600"
                       }`}
                     >
                       <div
-                        className="w-2 h-2 rounded-full border border-gray-400"
-                        style={{ backgroundColor: gem.color }}
+                        className={`w-4 h-4 bg-white rounded-full transition-transform absolute top-0.5 ${
+                          isDragMode
+                            ? "transform translate-x-5"
+                            : "transform translate-x-0.5"
+                        }`}
                       />
-                      {gem.name}
                     </button>
-                  ))}
+                  </div>
+                  {isDragMode && (
+                    <div className="text-xs text-green-300 bg-green-900/30 p-2 rounded">
+                      💡 Click and drag gemstone to reposition it!
+                    </div>
+                  )}
                 </div>
-              </div>
 
-              <div>
-                <label className="text-xs text-gray-400 mb-1 block">
-                  Custom Color
-                </label>
-                <div className="flex items-center gap-2">
+                {/* Gemstone Material Selector */}
+                <div>
+                  <label className="text-xs text-gray-400 mb-1 block">
+                    Gemstone Material
+                  </label>
+                  <select
+                    value={gemstoneMaterialType}
+                    onChange={e => setGemstoneMaterialType(e.target.value)}
+                    className="w-full bg-gray-800/50 text-gray-200 border border-gray-600/30 rounded-lg px-2 py-1.5 text-sm"
+                  >
+                    <option value="gold">Gold</option>
+                    <option value="silver">Silver</option>
+                    <option value="platinum">Platinum</option>
+                    <option value="copper">Copper</option>
+                    <option value="titanium">Titanium</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-xs text-gray-400 mb-1 block">
+                    Gemstone Type
+                  </label>
+                  <div className="grid grid-cols-2 gap-1">
+                    {GEMSTONE_PRESETS.map((gem) => (
+                      <button
+                        key={gem.name}
+                        onClick={() => {
+                          setGemstoneType(gem.name);
+                          setGemstoneColor(gem.color);
+                        }}
+                        className={`px-2 py-1 rounded text-xs font-medium transition-colors flex items-center gap-1 ${
+                          gemstoneType === gem.name
+                            ? "bg-blue-600 text-white"
+                            : "bg-gray-700/50 text-gray-300 hover:bg-gray-600/50"
+                        }`}
+                      >
+                        <div
+                          className="w-2 h-2 rounded-full border border-gray-400"
+                          style={{ backgroundColor: gem.color }}
+                        />
+                        {gem.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-xs text-gray-400 mb-1 block">
+                    Gemstone Size: {gemstoneSize.toFixed(2)}
+                  </label>
                   <input
-                    type="color"
-                    value={gemstoneColor}
-                    onChange={(e) => setGemstoneColor(e.target.value)}
-                    className="w-6 h-6 rounded border border-gray-600 cursor-pointer"
+                    type="range"
+                    min="0.03"
+                    max="0.2"
+                    step="0.01"
+                    value={gemstoneSize}
+                    onChange={e => {
+                      const val = Number(e.target.value);
+                      setGemstoneSize(Number.isFinite(val) && val > 0 ? val : safeGemstoneSize);
+                    }}
+                    className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer"
                   />
-                  <span className="text-xs text-gray-400 font-mono">
-                    {gemstoneColor.toUpperCase()}
-                  </span>
                 </div>
-              </div>
-
-              <div>
-                <label className="text-xs text-gray-400 mb-1 block">
-                  Opacity: {gemstoneOpacity.toFixed(1)}
-                </label>
-                <input
-                  type="range"
-                  min="0.1"
-                  max="1"
-                  step="0.1"
-                  value={gemstoneOpacity}
-                  onChange={(e) =>
-                    setGemstoneOpacity(Number.parseFloat(e.target.value))
-                  }
-                  className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs text-gray-400 mb-1 block">
-                  Gemstone Size: {gemstoneSize.toFixed(2)}
-                </label>
-                <input
-                  type="range"
-                  min="0.03"
-                  max="0.2"
-                  step="0.01"
-                  value={gemstoneSize}
-                  onChange={e => setGemstoneSize(Number(e.target.value))}
-                  className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer"
-                />
-              </div>
+              </>}
             </div>
           </div>
         )}
