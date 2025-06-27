@@ -564,6 +564,8 @@ function Scene({
   isDragMode,
   gemstoneMaterialType,
   canvasRef,
+  lightingPreset,
+  agingEffect,
 }) {
   const controlsRef = useRef();
   const currentLighting =
@@ -1418,12 +1420,15 @@ export default function Home() {
               gemstoneType={gemstoneType}
               gemstoneOpacity={gemstoneOpacity}
               gemstonePosition={gemstonePosition}
+              gemstoneSize={gemstoneSize}
               jewelryType={jewelryType}
               gemstoneCut={gemstoneCut}
               onGemstonePositionChange={handleGemstonePositionChange}
               isDragMode={isDragMode}
               gemstoneMaterialType={gemstoneMaterialType}
               canvasRef={canvasRef}
+              lightingPreset={lightingPreset}
+              agingEffect={agingEffect}
             />
           </Canvas>
         </div>
