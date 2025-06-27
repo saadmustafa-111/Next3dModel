@@ -371,6 +371,13 @@ function DraggableGemstone({
     };
   }, [geometry]);
 
+  // Reset drag state and position when size changes
+  useEffect(() => {
+    setDraggedPosition(null);
+    setSmoothPosition(safePosition);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [safeSize]);
+
   if (!visible) return null;
 
   return (
@@ -621,7 +628,6 @@ function Scene({
         enableRotate={!isDragMode}
         minDistance={2}
         maxDistance={10}
-        maxPolarAngle={Math.PI / 2}
       />
 
       <Model
@@ -848,35 +854,6 @@ export default function Home() {
     <div className="w-screen h-screen bg-white flex items-center justify-center p-2 md:p-4 relative overflow-hidden">
       <BlurredBackground isCustom={materialType === "custom"} />
 
-      {/* Download Image Button Only */}
-      <div className="absolute top-2 right-2 z-30 flex gap-2">
-        <button
-          onClick={handleDownloadImage}
-          className="px-3 py-1.5 rounded bg-blue-600 text-white font-medium shadow hover:bg-blue-700 transition"
-        >
-          Download Image
-        </button>
-        <button
-          onClick={handleOrderCustomDesign}
-          className="px-3 py-1.5 rounded bg-green-600 text-white font-medium shadow hover:bg-green-700 transition"
-        >
-          Order Custom Design
-        </button>
-      </div>
-
-      {!materialType === "custom" && (
-        <div
-          className="absolute inset-0 opacity-20 bg-gradient-to-br from-transparent via-gray-600 to-transparent"
-          style={{
-            backgroundImage: `
-              radial-gradient(circle at 25% 25%, rgba(255,255,255,0.1) 0%, transparent 50%),
-              radial-gradient(circle at 75% 75%, rgba(255,255,255,0.05) 0%, transparent 50%)
-            `,
-            filter: "blur(100px)",
-          }}
-        />
-      )}
-
       <div
         className={`relative w-full max-w-5xl h-full max-h-[700px] backdrop-blur-xl rounded-2xl md:rounded-3xl shadow-2xl overflow-hidden border-2 z-10 ${
           materialType === "custom"
@@ -884,8 +861,8 @@ export default function Home() {
             : "bg-black/40 border-gray-600/50"
         }`}
       >
-        {/* Compact Mobile Control Panel */}
-        <div className="absolute top-2 left-2 md:top-6 md:left-6 z-20 flex flex-wrap gap-2 md:flex-col md:space-y-3">
+        {/* Unified Control Panel: all buttons in one vertical column */}
+        <div className="absolute top-2 left-2 md:top-6 md:left-6 z-20 flex flex-col gap-y-2">
           {/* Color Control */}
           <button
             onClick={() => {
@@ -898,7 +875,6 @@ export default function Home() {
                 materialType === "custom" ? customMaterial.color : color,
             }}
           />
-
           {/* Material Control */}
           <button
             onClick={() => {
@@ -919,7 +895,6 @@ export default function Home() {
               <path d="M12 2L2 22h20L12 2z" />
             </svg>
           </button>
-
           {/* Size Control */}
           <button
             onClick={() => {
@@ -940,7 +915,6 @@ export default function Home() {
               <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
             </svg>
           </button>
-
           {/* Gemstone Control */}
           <button
             onClick={() => {
@@ -961,7 +935,6 @@ export default function Home() {
               <path d="M6 3h12l4 6-10 13L2 9l4-6z" />
             </svg>
           </button>
-
           {/* Drag Mode Toggle */}
           <button
             onClick={() => setIsDragMode(!isDragMode)}
@@ -983,7 +956,6 @@ export default function Home() {
               <path d="M9 9l6 6M9 15l6-6M3 12h18M12 3v18" />
             </svg>
           </button>
-
           {/* Effects Control */}
           <button
             onClick={() => {
@@ -1003,6 +975,22 @@ export default function Home() {
             >
               <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
             </svg>
+          </button>
+          {/* Download Image Button */}
+          <button
+            onClick={handleDownloadImage}
+            className="w-10 h-10 md:w-14 md:h-14 rounded-lg border-2 border-blue-600/70 bg-blue-600 text-white font-medium shadow hover:bg-blue-700 transition flex items-center justify-center"
+            title="Download Image"
+          >
+            <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
+          </button>
+          {/* Order Custom Design Button */}
+          <button
+            onClick={handleOrderCustomDesign}
+            className="w-10 h-10 md:w-14 md:h-14 rounded-lg border-2 border-green-600/70 bg-green-600 text-white font-medium shadow hover:bg-green-700 transition flex items-center justify-center"
+            title="Order Custom Design"
+          >
+            <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0h6"/></svg>
           </button>
         </div>
 
