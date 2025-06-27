@@ -388,7 +388,6 @@ function DraggableGemstone({
 
 // Gemstones Group Component with drag functionality
 function GemstonesGroup({
-  showGemstones,
   gemstoneColor,
   gemstoneType,
   gemstoneOpacity,
@@ -402,7 +401,6 @@ function GemstonesGroup({
   camera,
   canvasRef,
 }) {
-  if (!showGemstones) return null;
   return (
     <DraggableGemstone
       id={0}
@@ -507,7 +505,6 @@ function Model({
         position={[0, -1, 0]}
       />
       <GemstonesGroup
-        showGemstones={showGemstones}
         gemstoneColor={gemstoneColor}
         gemstoneType={gemstoneType}
         gemstoneOpacity={gemstoneOpacity}
@@ -641,7 +638,7 @@ export default function Home() {
   const [scale, setScale] = useState(0.35); // Reduced default size
   const [materialType, setMaterialType] = useState("gold");
   const [texture, setTexture] = useState("Smooth");
-  const [showGemstones, setShowGemstones] = useState(false);
+  const [showGemstones, setShowGemstones] = useState(true);
   const [gemstoneColor, setGemstoneColor] = useState("#ffffff");
   const [gemstoneType, setGemstoneType] = useState("Diamond");
   const [gemstoneCut, setGemstoneCut] = useState("Round");
