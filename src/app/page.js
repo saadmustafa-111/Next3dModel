@@ -780,7 +780,7 @@ export default function Home() {
   };
 
   // Download Image Handler
-  const handleDownloadImage = useCallback(() => {
+  async function handleDownloadImage() {
     // Wait for next animation frame to ensure latest render
     await new Promise((resolve) => requestAnimationFrame(resolve));
     const canvas = canvasRef.current || document.querySelector("canvas");
@@ -792,7 +792,7 @@ export default function Home() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-  }, []);
+  }
 
   const [selectedSize, setSelectedSize] = useState(DEFAULT_SIZES[jewelryType] || 17.3);
 
