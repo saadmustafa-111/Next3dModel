@@ -781,8 +781,9 @@ export default function Home() {
 
   // Download Image Handler
   const handleDownloadImage = useCallback(() => {
-    // Find the canvas element rendered by react-three-fiber
-    const canvas = document.querySelector('canvas');
+    // Wait for next animation frame to ensure latest render
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    const canvas = canvasRef.current || document.querySelector("canvas");
     if (!canvas) return;
     const image = canvas.toDataURL('image/png');
     const link = document.createElement('a');
@@ -821,7 +822,8 @@ export default function Home() {
       alert("No seller ID found in URL.");
       return;
     }
-    // 1. Capture canvas image
+    // Wait for next animation frame to ensure latest render
+    await new Promise((resolve) => requestAnimationFrame(resolve));
     const canvas = canvasRef.current || document.querySelector("canvas");
     if (!canvas) {
       alert("Could not find the 3D canvas to capture image.");
@@ -830,14 +832,12 @@ export default function Home() {
     let imageDataUrl = canvas.toDataURL("image/png");
     let cloudinaryUrl = null;
     try {
-      // 2. Upload to Cloudinary
       const uploadResult = await uploadImageToCloudinary(imageDataUrl);
       cloudinaryUrl = uploadResult.secure_url;
     } catch (err) {
       alert("Failed to upload image to Cloudinary: " + err.message);
       return;
     }
-    // 3. Prepare order object
     const order = {
       customerId,
       sellerId,
@@ -857,7 +857,7 @@ export default function Home() {
       gemstonePosition,
       gemstoneSize,
       gemstoneMaterialType,
-      designImageUrl: cloudinaryUrl, // Add Cloudinary image URL
+      designImageUrl: cloudinaryUrl,
       createdAt: serverTimestamp(),
     };
     try {
