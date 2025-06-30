@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState, useMemo, useCallback } from "react";
-import { Canvas, useThree } from "@react-three/fiber";
+import { Canvas, useThree, invalidate } from "@react-three/fiber";
 import { OrbitControls, useGLTF } from "@react-three/drei";
 import { HexColorPicker } from "react-colorful";
 import * as THREE from "three";
@@ -822,8 +822,8 @@ export default function Home() {
       alert("No seller ID found in URL.");
       return;
     }
-    // Wait for next animation frame to ensure latest render
-    await new Promise((resolve) => requestAnimationFrame(resolve));
+    invalidate(); // Force a render of the latest state
+    await new Promise((resolve) => requestAnimationFrame(resolve)); // Wait for the render
     const canvas = canvasRef.current || document.querySelector("canvas");
     if (!canvas) {
       alert("Could not find the 3D canvas to capture image.");
