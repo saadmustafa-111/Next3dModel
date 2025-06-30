@@ -6,6 +6,7 @@ import { HexColorPicker } from "react-colorful";
 import * as THREE from "three";
 import { db } from "./firebase";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import cloudinaryConfig from "./cloudinary";
 
 // Material presets for performance optimization
 const MATERIAL_PRESETS = {
@@ -656,6 +657,24 @@ function Scene({
   );
 }
 
+// Helper to upload base64 image to Cloudinary
+async function uploadImageToCloudinary(base64Image) {
+  const formData = new FormData();
+  formData.append("file", base64Image);
+  formData.append("upload_preset", cloudinaryConfig.upload_preset);
+  formData.append("cloud_name", cloudinaryConfig.cloud_name);
+  // Optionally: formData.append('api_key', cloudinaryConfig.api_key);
+  const response = await fetch(
+    `https://api.cloudinary.com/v1_1/${cloudinaryConfig.cloud_name}/image/upload`,
+    {
+      method: "POST",
+      body: formData,
+    }
+  );
+  if (!response.ok) throw new Error("Cloudinary upload failed");
+  return response.json();
+}
+
 export default function Home() {
   // Get modelUrl, customerId, and sellerId from URL parameter - Now safely handles SSR
   const [urlModelUrl, setUrlModelUrl] = useState(null);
@@ -802,6 +821,23 @@ export default function Home() {
       alert("No seller ID found in URL.");
       return;
     }
+    // 1. Capture canvas image
+    const canvas = canvasRef.current || document.querySelector("canvas");
+    if (!canvas) {
+      alert("Could not find the 3D canvas to capture image.");
+      return;
+    }
+    let imageDataUrl = canvas.toDataURL("image/png");
+    let cloudinaryUrl = null;
+    try {
+      // 2. Upload to Cloudinary
+      const uploadResult = await uploadImageToCloudinary(imageDataUrl);
+      cloudinaryUrl = uploadResult.secure_url;
+    } catch (err) {
+      alert("Failed to upload image to Cloudinary: " + err.message);
+      return;
+    }
+    // 3. Prepare order object
     const order = {
       customerId,
       sellerId,
@@ -821,6 +857,7 @@ export default function Home() {
       gemstonePosition,
       gemstoneSize,
       gemstoneMaterialType,
+      designImageUrl: cloudinaryUrl, // Add Cloudinary image URL
       createdAt: serverTimestamp(),
     };
     try {
